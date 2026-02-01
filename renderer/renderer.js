@@ -21,6 +21,7 @@ const sidebar = document.getElementById('sidebar');
 // =====================================================
 let isPlaying = false;
 let currentMovies = [];
+let currentMovieIndex = -1;
 let previousVolume = 0.5; // Store volume before mute (default restore to 50%)
 let clickTimeout = null; // For single/double click detection
 const CLICK_DELAY = 250; // ms delay to distinguish single from double click
@@ -230,6 +231,8 @@ function renderMovies(movies) {
 function playMovie(index) {
     const movie = currentMovies[index];
     if (!movie) return;
+    
+    currentMovieIndex = index;
 
     // Highlight active
     document.querySelectorAll('.movie-item').forEach((el, i) => {
@@ -240,6 +243,9 @@ function playMovie(index) {
     video.src = movie.videoPath;
     video.play();
     updatePlayIcon(true);
+    
+    // Hide placeholder
+    document.querySelector('.main-content').classList.add('has-video');
 }
 
 // Play/Pause - Button always works immediately
@@ -329,18 +335,31 @@ progressBar.addEventListener('mouseenter', () => {
     }, PREVIEW_DELAY);
 });
 
+// Cache for sprite image
+// let spriteImage = null;
+// let lastSpritePath = null;
+
 progressBar.addEventListener('mousemove', (e) => {
     if (!video.duration) return;
     
     const rect = progressBar.getBoundingClientRect();
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const mouseX = e.clientX - rect.left;
+    const pos = Math.max(0, Math.min(1, mouseX / rect.width));
     const previewTimeValue = pos * video.duration;
     
+    // Calculate clamped position for tooltip
+    // Tooltip width is approx 160px (canvas) + borders
+    const tooltipWidth = 162; 
+    let tooltipLeft = mouseX - (tooltipWidth / 2);
+    
+    // Clamp to [0,  width - tooltipWidth]
+    tooltipLeft = Math.max(0, Math.min(tooltipLeft, rect.width - tooltipWidth));
+    
     // Update position and time
-    progressPreview.style.left = `${pos * 100}%`;
+    progressPreview.style.left = `${tooltipLeft}px`;
     previewTime.innerText = formatTime(previewTimeValue);
     
-    // Seek immediately (no throttle for smooth scrubbing)
+    // Seek immediately
     if (previewVisible) {
         seekerPreviewVideo.currentTime = previewTimeValue;
     }

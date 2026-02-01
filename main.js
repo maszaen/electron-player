@@ -145,12 +145,20 @@ ipcMain.handle('select-folder', async () => {
 // PREVIEW THUMBNAIL GENERATION
 // =====================================================
 
+// =====================================================
+// ASSET PATHS
+// =====================================================
+
 function getPreviewPath(videoPath) {
     const dir = path.dirname(videoPath);
     const previewDir = path.join(dir, PREVIEW_FOLDER);
     const baseName = path.basename(videoPath, path.extname(videoPath));
     return path.join(previewDir, `${baseName}_preview.mp4`);
 }
+
+// =====================================================
+// FILE SCANNING LOGIC
+// =====================================================
 
 function checkPreviewsNeeded(movies) {
     const needed = [];
@@ -171,7 +179,7 @@ ipcMain.handle('generate-previews', async (event, movies) => {
     
     for (const movie of movies) {
         try {
-            await generatePreview(movie.videoPath);
+            await generatePreviewVideo(movie.videoPath);
             movie.previewPath = getPreviewPath(movie.videoPath);
             completed++;
             
@@ -196,33 +204,29 @@ ipcMain.handle('generate-previews', async (event, movies) => {
     return movies;
 });
 
-function generatePreview(videoPath) {
+// =====================================================
+// GENERATION FUNCTIONS
+// =====================================================
+
+function generatePreviewVideo(videoPath) {
     return new Promise((resolve, reject) => {
-        const previewPath = getPreviewPath(videoPath);
-        const previewDir = path.dirname(previewPath);
+        const outputPath = getPreviewPath(videoPath);
+        const previewDir = path.dirname(outputPath);
         
-        // Create preview folder if not exists
-        if (!fs.existsSync(previewDir)) {
-            fs.mkdirSync(previewDir, { recursive: true });
-        }
+        if (!fs.existsSync(previewDir)) fs.mkdirSync(previewDir, { recursive: true });
         
-        // First, get video duration
         ffmpeg.ffprobe(videoPath, (err, metadata) => {
-            if (err) {
-                reject(err);
-                return;
-            }
+            if (err) return reject(err);
             
             const duration = metadata.format.duration;
-            const positions = [0.1, 0.3, 0.5, 0.7, 0.9]; // 10%, 30%, 50%, 70%, 90%
-            const clipDuration = 3; // 3 seconds each
+            const positions = [0.1, 0.3, 0.5, 0.7, 0.9];
+            const clipDuration = 3;
             
-            // Generate filter complex for extracting and concatenating clips
             const tempFiles = [];
             let clipPromises = positions.map((pos, i) => {
                 return new Promise((res, rej) => {
                     const startTime = duration * pos;
-                    const tempFile = path.join(previewDir, `temp_${i}.mp4`);
+                    const tempFile = path.join(previewDir, `temp_${i}_${path.basename(outputPath)}`);
                     tempFiles.push(tempFile);
                     
                     ffmpeg(videoPath)
@@ -233,7 +237,7 @@ function generatePreview(videoPath) {
                             '-c:v', 'libx264',
                             '-preset', 'ultrafast',
                             '-crf', '28',
-                            '-an' // No audio
+                            '-an'
                         ])
                         .output(tempFile)
                         .on('end', () => res(tempFile))
@@ -244,8 +248,7 @@ function generatePreview(videoPath) {
             
             Promise.all(clipPromises)
                 .then(() => {
-                    // Concatenate all clips
-                    const listFile = path.join(previewDir, 'list.txt');
+                    const listFile = path.join(previewDir, `list_${path.basename(outputPath)}.txt`);
                     const listContent = tempFiles.map(f => `file '${f.replace(/\\/g, '/')}'`).join('\n');
                     fs.writeFileSync(listFile, listContent);
                     
@@ -253,19 +256,14 @@ function generatePreview(videoPath) {
                         .input(listFile)
                         .inputOptions(['-f', 'concat', '-safe', '0'])
                         .outputOptions(['-c', 'copy'])
-                        .output(previewPath)
+                        .output(outputPath)
                         .on('end', () => {
-                            // Cleanup temp files
-                            tempFiles.forEach(f => {
-                                try { fs.unlinkSync(f); } catch (e) {}
-                            });
+                            tempFiles.forEach(f => { try { fs.unlinkSync(f); } catch (e) {} });
                             try { fs.unlinkSync(listFile); } catch (e) {}
-                            resolve(previewPath);
+                            resolve(outputPath);
                         })
                         .on('error', (err) => {
-                            tempFiles.forEach(f => {
-                                try { fs.unlinkSync(f); } catch (e) {}
-                            });
+                            tempFiles.forEach(f => { try { fs.unlinkSync(f); } catch (e) {} });
                             try { fs.unlinkSync(listFile); } catch (e) {}
                             reject(err);
                         })
