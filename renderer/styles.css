@@ -513,9 +513,16 @@ video {
     pointer-events: auto;
 }
 
-.main-content:hover .overlay-controls,
-.overlay-controls:hover {
+/* Visibility controlled by JS now */
+.app-container.controls-visible .overlay-controls,
+.video-container.paused .overlay-controls {
     opacity: 1;
+    cursor: default; /* Show cursor when controls visible */
+}
+
+/* Hide cursor when controls hidden (optional, but good UX) */
+.app-container:not(.controls-visible):not(.paused) .video-container {
+    cursor: none;
 }
 
 .video-title {

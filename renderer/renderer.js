@@ -605,6 +605,76 @@ document.addEventListener('keydown', (e) => {
 });
 
 // =====================================================
+// CONTROLS VISIBILITY
+// =====================================================
+const appContainer = document.querySelector('.app-container');
+let controlsHideTimer = null;
+let controlsIdleTimer = null;
+
+function showControls() {
+    // Clear pending hide timers
+    if (controlsHideTimer) clearTimeout(controlsHideTimer);
+    if (controlsIdleTimer) clearTimeout(controlsIdleTimer);
+    
+    appContainer.classList.add('controls-visible');
+    
+    // Start idle timer (auto hide if mouse doesn't move)
+    startIdleTimer();
+}
+
+function hideControlsDelayed(delay) {
+    if (controlsHideTimer) clearTimeout(controlsHideTimer);
+    if (controlsIdleTimer) clearTimeout(controlsIdleTimer);
+    
+    // If paused, controls stay visible (CSS handled, but logic here for state)
+    if (video.paused) return;
+    
+    controlsHideTimer = setTimeout(() => {
+        if (!video.paused) {
+             appContainer.classList.remove('controls-visible');
+        }
+    }, delay);
+}
+
+function startIdleTimer() {
+    // Only auto-hide if playing
+    if (video.paused) return;
+    
+    controlsIdleTimer = setTimeout(() => {
+         if (!video.paused) {
+            appContainer.classList.remove('controls-visible');
+        }
+    }, 2500); // 2.5s idle timeout
+}
+
+// Event Listeners on Main Content (Video Area)
+const mainContent = document.querySelector('.main-content');
+
+mainContent.addEventListener('mouseenter', () => {
+    showControls();
+});
+
+mainContent.addEventListener('mouseleave', () => {
+    hideControlsDelayed(1000); // 1s delay on leave
+});
+
+mainContent.addEventListener('mousemove', () => {
+    showControls(); // Show and reset idle timer
+});
+
+// Ensure controls visible instantly on pause
+video.addEventListener('pause', () => {
+    showControls();
+    // Don't start idle timer if paused (controls should stay)
+    if (controlsIdleTimer) clearTimeout(controlsIdleTimer);
+});
+
+// Start idle timer on play
+video.addEventListener('play', () => {
+    startIdleTimer();
+});
+
+// =====================================================
 // HELPER FUNCTIONS
 // =====================================================
 function formatTime(seconds) {
