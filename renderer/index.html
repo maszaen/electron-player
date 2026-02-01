@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://unpkg.com; media-src 'self' blob: file:; font-src 'self';">
+    <title>Player+</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <!-- Custom Title Bar -->
+    <div class="titlebar">
+        <span class="titlebar-title">Player+</span>
+        <div class="window-controls">
+            <button class="control-btn refresh-btn" id="refreshBtn" title="Refresh">
+                <i data-lucide="rotate-cw"></i>
+            </button>
+            <button class="control-btn minimize-btn" id="minBtn" title="Minimize">
+                <i data-lucide="minus"></i>
+            </button>
+            <button class="control-btn maximize-btn" id="maxBtn" title="Maximize">
+                <i data-lucide="square"></i>
+            </button>
+            <button class="control-btn close-btn" id="closeBtn" title="Close">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="app-container">
+        
+        <!-- Sidebar - starts collapsed -->
+        <div class="sidebar collapsed" id="sidebar">
+            
+            <div class="movie-list-wrapper">
+                <div class="movie-list" id="movieList">
+                    <div class="movie-list-empty">
+                        No media found.<br>Click "Open Folder" to scan.
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-header">
+                <button class="scan-btn" id="scanBtn">
+                    <i data-lucide="folder-open"></i>
+                    Open Folder
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Video Player -->
+        <div class="main-content" id="playerContainer">
+            
+            <video id="mainVideo">
+                <p>Format unsupported</p>
+            </video>
+
+            <!-- Overlay Controls -->
+            <div class="overlay-controls">
+                
+                <!-- Video Title -->
+                <div class="video-title" id="videoTitle">No Video Playing</div>
+                
+                <!-- Progress Bar -->
+                <div class="progress-container" id="progressBar">
+                    <div class="progress-fill" id="progressFill"></div>
+                    <div class="progress-thumb" id="progressThumb"></div>
+                    <div class="progress-preview" id="progressPreview">
+                        <video class="progress-preview-video" id="previewVideo" muted></video>
+                        <span class="progress-preview-time" id="previewTime">0:00</span>
+                    </div>
+                </div>
+
+                <!-- Controls Row -->
+                <div class="controls-row">
+                    
+                    <!-- Left: Volume & Sidebar Toggle -->
+                    <div class="left-controls">
+                        <button class="icon-btn" id="sidebarToggle" title="Toggle Sidebar">
+                            <i data-lucide="panel-left"></i>
+                        </button>
+                        
+                        <!-- Volume button contains icon + slider, hover covers both -->
+                        <div class="volume-btn" id="volumeBtn" title="Mute/Unmute">
+                            <i data-lucide="volume-x" id="volumeIcon"></i>
+                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="0">
+                        </div>
+                    </div>
+
+                    <!-- Center: Skip & Play Controls -->
+                    <div class="center-controls">
+                        <!-- Backward Skip Group -->
+                        <div class="skip-group">
+                            <button class="skip-btn skip-large" id="skipBack30m" title="Skip -30 minutes">-30m</button>
+                            <button class="skip-btn skip-large" id="skipBack10m" title="Skip -10 minutes">-10m</button>
+                            <button class="skip-btn" id="skipBack1m" title="Skip -1 minute">-1m</button>
+                            <button class="skip-btn" id="skipBack30s" title="Skip -30 seconds">-30s</button>
+                            <button class="skip-btn" id="skipBack10s" title="Skip -10 seconds">-10s</button>
+                        </div>
+
+                        <!-- Play/Pause -->
+                        <button class="play-btn" id="playPauseBtn" title="Play/Pause">
+                            <i data-lucide="play" id="playIcon"></i>
+                        </button>
+                        
+                        <!-- Forward Skip Group -->
+                        <div class="skip-group">
+                            <button class="skip-btn" id="skipFwd10s" title="Skip +10 seconds">+10s</button>
+                            <button class="skip-btn" id="skipFwd30s" title="Skip +30 seconds">+30s</button>
+                            <button class="skip-btn" id="skipFwd1m" title="Skip +1 minute">+1m</button>
+                            <button class="skip-btn skip-large" id="skipFwd10m" title="Skip +10 minutes">+10m</button>
+                            <button class="skip-btn skip-large" id="skipFwd30m" title="Skip +30 minutes">+30m</button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Time & Fullscreen -->
+                    <div class="right-controls">
+                        <div class="time-display">
+                            <span class="current" id="currentTime">0:00</span>
+                            <span> / </span>
+                            <span id="totalTime">0:00</span>
+                        </div>
+                        
+                        <button class="icon-btn" id="fullscreenBtn" title="Fullscreen">
+                            <i data-lucide="maximize"></i>
+                        </button>
+                    </div>
+                    
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>

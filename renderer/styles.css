@@ -1,0 +1,762 @@
+/* Local Fonts */
+@font-face {
+    font-family: 'Zalando Sans';
+    src: url('./fonts/ZalandoSansExpanded-VariableFont_wght.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Roboto Condensed';
+    src: url('./fonts/HostGrotesk-VariableFont_wght.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    --bg-main: #000000;
+    --bg-sidebar: #080808;
+    --bg-card: #111111;
+    --bg-hover: #1a1a1a;
+    --accent: #3b82f6;  
+    --accent30: #3b83f659;
+    --accent-glow: rgba(59, 130, 246, 0.3);
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --text-muted: #a5a5a5ff;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-light: rgba(255, 255, 255, 0.1);
+    --danger: #ef4444;
+}
+
+*:focus {
+  outline: none;
+}
+
+/* Kasih custom focus style yang lebih mantep */
+*:focus-visible {
+  outline: 2px solid;
+  outline-offset: 2px;
+  /* atau bisa pake box-shadow */
+  /* box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5); */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    font-family: 'Zalando Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* =====================================================
+   CUSTOM TITLE BAR
+   ===================================================== */
+.titlebar {
+    height: 36px;
+    background: linear-gradient(180deg, #151515 0%, #0a0a0a 100%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    -webkit-app-region: drag;
+    padding: 0px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 1000;
+}
+
+.titlebar-title {
+    font-size: 12px;
+    padding: 0 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+}
+
+.window-controls {
+    display: flex;
+    height: 100%;
+    -webkit-app-region: no-drag;
+}
+
+.control-btn {
+    width: 42px;
+    height: 100%;
+  
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.control-btn:focus-visible {
+  outline: 0px solid;
+  outline-offset: 2px;
+  /* atau bisa pake box-shadow */
+  /* box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5); */
+}
+
+.control-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+.control-btn.close-btn:hover {
+    background: var(--danger);
+    color: white;
+}
+
+.control-btn svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+}
+
+.maximize-btn svg {
+    width: 13px;
+    height: 13px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    rotate: 90deg;
+}
+
+.close-btn svg {
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+}
+
+/* =====================================================
+   MAIN LAYOUT
+   ===================================================== */
+.app-container {
+    display: flex;
+    height: calc(100vh - 36px);
+    background: var(--bg-main);
+}
+
+/* =====================================================
+   SIDEBAR - THUMBNAIL CARD STYLE
+   ===================================================== */
+.sidebar {
+    width: 300px;
+    min-width: 300px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 50;
+}
+
+.sidebar.collapsed {
+    margin-left: -300px;
+}
+
+.sidebar-header {
+    padding: 12px;
+    padding-top: 6px;
+}
+
+/* Open Folder Button - Subtle Dark Style */
+.scan-btn {
+    width: 100%;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.scan-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.scan-btn:active {
+    transform: scale(0.98);
+}
+
+.scan-btn svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+}
+
+/* Movie List - Grid of Thumbnails */
+.movie-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 11px 6px 12px 12px; /* Right padding smaller due to scrollbar */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Top gradient fade - using wrapper in HTML */
+.movie-list-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+.movie-list-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    background: linear-gradient(180deg, #080808 0%, transparent 100%);
+    z-index: 10;
+    pointer-events: none;
+}
+
+.movie-list-wrapper::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    background: linear-gradient(180deg, transparent 0%, #080808 100%);
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* Movie Item - Big Thumbnail with Overlay */
+.movie-item {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    cursor: pointer;
+    overflow: hidden;
+    background: var(--bg-card);
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    border: 2px solid transparent;
+}
+
+.movie-item:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.movie-item.active {
+    border-color: var(--accent);
+}
+
+/* Thumbnail Image */
+.movie-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #1a1a1a;
+    transition: opacity 0.3s ease;
+}
+
+/* Preview Video - hidden by default */
+.movie-preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+/* When previewing, fade cover out and video in */
+.movie-item.previewing .movie-cover-img {
+    opacity: 0;
+}
+
+.movie-item.previewing .movie-preview {
+    opacity: 1;
+}
+
+/* Overlay Gradient - Only on Hover */
+.movie-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 24px 10px 10px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 50%, transparent 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.movie-item:hover .movie-overlay {
+    opacity: 1;
+}
+
+.movie-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.movie-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.movie-list-empty {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* =====================================================
+   MAIN CONTENT (VIDEO PLAYER)
+   ===================================================== */
+.main-content {
+    flex: 1;
+    position: relative;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+/* =====================================================
+   OVERLAY CONTROLS
+   ===================================================== */
+.overlay-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, transparent 100%);
+    padding: 60px 24px 10px;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.main-content:hover .overlay-controls,
+.overlay-controls:hover {
+    opacity: 1;
+}
+
+.video-title {
+    font-size: 15px;
+    margin-bottom: 2px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =====================================================
+   PROGRESS BAR - Red with Dot
+   ===================================================== */
+.progress-container {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+    transition: height 0.15s ease;
+}
+
+.progress-container:hover {
+    height: 6px;
+}
+
+.progress-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: #e53935;
+    width: 0%;
+    border-radius: 2px;
+    pointer-events: none;
+    transition: width 0.1s linear;
+}
+
+/* Progress thumb/dot */
+.progress-thumb {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    background: #e53935;
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    pointer-events: none;
+    transition: transform 0.15s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.progress-container:hover .progress-thumb {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.progress-container:hover .progress-fill {
+    box-shadow: 0 0 10px rgba(229, 57, 53, 0.5);
+}
+
+/* Progress Preview Tooltip */
+.progress-preview {
+    position: absolute;
+    bottom: 20px;
+    transform: translateX(-50%);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.progress-container:hover .progress-preview {
+    display: flex;
+}
+
+.progress-preview-video {
+    width: 160px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.progress-preview-time {
+    margin-top: 4px;
+    padding: 2px 8px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 3px;
+    font-size: 12px;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+/* =====================================================
+   CONTROLS ROW
+   ===================================================== */
+.controls-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.center-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+}
+
+/* Skip Button Group */
+.skip-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.skip-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-family: 'Roboto Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    min-width: 40px;
+    text-align: center;
+}
+
+.skip-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+}
+
+.skip-btn:active {
+    transform: scale(0.95);
+}
+
+.skip-btn.skip-large {
+    min-width: 44px;
+}
+
+/* Play/Pause Button - Subtle Dark Style */
+.play-btn {
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    border: 2px solid transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    margin: 0 12px;
+}
+
+.play-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.09);
+}
+
+.play-btn:active {
+    border-color: var(--accent30);
+}
+
+.play-btn svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+    stroke: none;
+}
+
+/* Icon Button */
+.icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.icon-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+}
+
+/* Left & Right Control Groups */
+.left-controls,
+.right-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Volume Button - Contains icon + slider */
+.volume-btn {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.volume-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+/* Volume icon */
+.volume-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    flex-shrink: 0;
+}
+
+/* Volume slider - hidden by default, expands on hover */
+.volume-slider {
+    width: 0;
+    height: 4px;
+    opacity: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    margin: 0;
+    margin-left: 0;
+    padding: 0;
+    transition: width 0.2s ease, opacity 0.15s ease, margin-left 0.2s ease;
+}
+
+/* Show slider on volume btn hover */
+.volume-btn:hover .volume-slider {
+    width: 80px;
+    opacity: 1;
+    margin-left: 8px;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, #ffffff 0%, #ffffff var(--volume-percent, 0%), rgba(255, 255, 255, 0.25) var(--volume-percent, 0%));
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 10px;
+    height: 10px;
+    background: var(--text-primary);
+    border-radius: 50%;
+    cursor: pointer;
+    margin-top: -3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Keep slider open when locked (after user adjusts volume) */
+.volume-btn.slider-locked .volume-slider {
+    width: 80px;
+    opacity: 1;
+    margin-left: 8px;
+}
+
+.volume-btn.slider-locked {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+/* Time Display */
+.time-display,
+.time-display span {
+    font-family: 'Roboto Condensed', sans-serif;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+}
+
+.time-display {
+    min-width: 100px;
+    text-align: center;
+}
+
+.time-display .current {
+    color: var(--text-primary);
+}
+
+/* =====================================================
+   SCROLLBAR
+   ===================================================== */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* =====================================================
+   FULLSCREEN
+   ===================================================== */
+.app-container:fullscreen {
+    background: #000;
+}
+
+/* In fullscreen, sidebar behaves the same - just uses collapse class */
+.app-container:fullscreen .sidebar {
+    background: rgba(8, 8, 8, 0.98);
+    backdrop-filter: blur(20px);
+}
+
+/* =====================================================
+   ANIMATIONS
+   ===================================================== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.movie-item {
+    animation: fadeIn 0.25s ease;
+}
