@@ -486,7 +486,7 @@ function updateVolumeIcon(volume) {
     
     // Set icon type based on volume level
     if (volume === 0) {
-        icon.setAttribute('data-lucide', 'volume-x');
+        icon.setAttribute('data-lucide', 'volume-off');
     } else if (volume < 0.5) {
         icon.setAttribute('data-lucide', 'volume-1');
     } else {

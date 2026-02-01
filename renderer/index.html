@@ -82,52 +82,56 @@
                 <!-- Controls Row -->
                 <div class="controls-row">
                     
-                    <!-- Left: Volume & Sidebar Toggle -->
+                    <!-- Left: Play, Volume, Time -->
                     <div class="left-controls">
-                        <button class="icon-btn" id="sidebarToggle" title="Toggle Sidebar">
-                            <i data-lucide="panel-left"></i>
-                        </button>
-                        
-                        <!-- Volume button contains icon + slider, hover covers both -->
-                        <div class="volume-btn" id="volumeBtn" title="Mute/Unmute">
-                            <i data-lucide="volume-x" id="volumeIcon"></i>
-                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="0">
-                        </div>
-                    </div>
-
-                    <!-- Center: Skip & Play Controls -->
-                    <div class="center-controls">
-                        <!-- Backward Skip Group -->
-                        <div class="skip-group">
-                            <button class="skip-btn skip-large" id="skipBack30m" title="Skip -30 minutes">-30m</button>
-                            <button class="skip-btn skip-large" id="skipBack10m" title="Skip -10 minutes">-10m</button>
-                            <button class="skip-btn" id="skipBack1m" title="Skip -1 minute">-1m</button>
-                            <button class="skip-btn" id="skipBack30s" title="Skip -30 seconds">-30s</button>
-                            <button class="skip-btn" id="skipBack10s" title="Skip -10 seconds">-10s</button>
-                        </div>
-
                         <!-- Play/Pause -->
-                        <button class="play-btn" id="playPauseBtn" title="Play/Pause">
+                        <button class="icon-btn" id="playPauseBtn" title="Play/Pause">
                             <i data-lucide="play" id="playIcon"></i>
                         </button>
-                        
-                        <!-- Forward Skip Group -->
-                        <div class="skip-group">
-                            <button class="skip-btn" id="skipFwd10s" title="Skip +10 seconds">+10s</button>
-                            <button class="skip-btn" id="skipFwd30s" title="Skip +30 seconds">+30s</button>
-                            <button class="skip-btn" id="skipFwd1m" title="Skip +1 minute">+1m</button>
-                            <button class="skip-btn skip-large" id="skipFwd10m" title="Skip +10 minutes">+10m</button>
-                            <button class="skip-btn skip-large" id="skipFwd30m" title="Skip +30 minutes">+30m</button>
+
+                        <!-- Volume -->
+                        <div class="volume-btn" id="volumeBtn" title="Mute/Unmute">
+                            <i data-lucide="volume-off" id="volumeIcon"></i>
+                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="0">
+                        </div>
+
+                        <!-- Time -->
+                        <div class="time-display">
+                            <span class="current" id="currentTime">0:00</span>
+                            <span class="separator">/</span>
+                            <span id="totalTime">0:00</span>
                         </div>
                     </div>
 
-                    <!-- Right: Time & Fullscreen -->
+                    <!-- Right: Skipper, Sidebar, Fullscreen -->
                     <div class="right-controls">
-                        <div class="time-display">
-                            <span class="current" id="currentTime">0:00</span>
-                            <span> / </span>
-                            <span id="totalTime">0:00</span>
+                        
+                        <!-- Skipper Expander -->
+                        <!-- Skipper Expander (Pill Style) -->
+                        <div class="skipper-btn" title="Skip Options">
+                            <i data-lucide="skip-forward"></i>
+                            <div class="skipper-controls">
+                                <!-- Back -->
+                                <button class="skip-btn" id="skipBack30m">-30m</button>
+                                <button class="skip-btn" id="skipBack10m">-10m</button>
+                                <button class="skip-btn" id="skipBack1m">-1m</button>
+                                <button class="skip-btn" id="skipBack30s">-30s</button>
+                                <button class="skip-btn" id="skipBack10s">-10s</button>
+                                
+                                <div class="skip-divider"></div>
+                                
+                                <!-- Forward -->
+                                <button class="skip-btn" id="skipFwd10s">+10s</button>
+                                <button class="skip-btn" id="skipFwd30s">+30s</button>
+                                <button class="skip-btn" id="skipFwd1m">+1m</button>
+                                <button class="skip-btn" id="skipFwd10m">+10m</button>
+                                <button class="skip-btn" id="skipFwd30m">+30m</button>
+                            </div>
                         </div>
+
+                        <button class="icon-btn" id="sidebarToggle" title="Toggle Sidebar">
+                            <i data-lucide="panel-right"></i>
+                        </button>
                         
                         <button class="icon-btn" id="fullscreenBtn" title="Fullscreen">
                             <i data-lucide="maximize"></i>
