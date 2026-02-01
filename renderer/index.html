@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://unpkg.com; media-src 'self' blob: file:; font-src 'self';">
-    <title>Player+</title>
+    <title>Tons</title>
     <link rel="stylesheet" href="styles.css">
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -11,7 +11,7 @@
 <body>
     <!-- Custom Title Bar -->
     <div class="titlebar">
-        <span class="titlebar-title">Player+</span>
+        <span class="titlebar-title">Tons</span>
         <div class="window-controls">
             <button class="control-btn refresh-btn" id="refreshBtn" title="Refresh">
                 <i data-lucide="rotate-cw"></i>
@@ -55,6 +55,13 @@
             <video id="mainVideo">
                 <p>Format unsupported</p>
             </video>
+
+            <!-- Empty State Placeholder -->
+            <div class="video-placeholder" id="videoPlaceholder">
+                <i data-lucide="play-circle"></i>
+                <h2>Ready to Play</h2>
+                <p>Open the sidebar and select a video from your library</p>
+            </div>
 
             <!-- Overlay Controls -->
             <div class="overlay-controls">

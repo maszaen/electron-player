@@ -442,6 +442,49 @@ video {
     background: #000;
 }
 
+/* Empty State Placeholder */
+.video-placeholder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    color: var(--text-muted);
+    pointer-events: none;
+    user-select: none;
+}
+
+.video-placeholder svg {
+    width: 48px;
+    height: 48px;
+    stroke-width: 1;
+    opacity: 0.4;
+}
+
+.video-placeholder h2 {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.video-placeholder p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 280px;
+    line-height: 1.5;
+}
+
+/* Hide placeholder when video is playing */
+.main-content.has-video .video-placeholder {
+    display: none;
+}
+
 /* =====================================================
    OVERLAY CONTROLS
    ===================================================== */
