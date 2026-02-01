@@ -58,17 +58,82 @@ window.api.isMaximized().then(updateMaximizeIcon);
 lucide.createIcons();
 
 // =====================================================
-// LIBRARY SCANNING
+// LIBRARY SCANNING & PREVIEW GENERATION
 // =====================================================
+let isGenerating = false;
+
 async function loadLibrary() {
-    const movies = await window.api.scanDefault();
+    const result = await window.api.scanDefault();
+    if (!result) return;
+    
+    const { movies, needsGeneration } = result;
+    
+    if (needsGeneration && needsGeneration.length > 0) {
+        // Show generating loader
+        showGeneratingLoader(0, needsGeneration.length);
+        isGenerating = true;
+        
+        // Generate previews
+        const updatedMovies = await window.api.generatePreviews(needsGeneration);
+        
+        // Merge updated preview paths
+        for (const updated of updatedMovies) {
+            const original = movies.find(m => m.videoPath === updated.videoPath);
+            if (original) {
+                original.previewPath = updated.previewPath;
+            }
+        }
+        
+        isGenerating = false;
+    }
+    
     renderMovies(movies);
 }
+
+// Listen for preview progress updates
+window.api.onPreviewProgress((progress) => {
+    showGeneratingLoader(progress.current, progress.total, progress.name);
+});
+
+function showGeneratingLoader(current, total, name = '') {
+    const percent = total > 0 ? (current / total) * 100 : 0;
+    movieList.innerHTML = `
+        <div class="generating-loader">
+            <div class="loader-text">Generating thumbnails</div>
+            <div class="loader-progress">${current}/${total}</div>
+            <div class="loader-bar">
+                <div class="loader-bar-fill" style="width: ${percent}%"></div>
+            </div>
+            ${name ? `<div class="loader-name">${name}</div>` : ''}
+        </div>
+    `;
+}
+
 loadLibrary();
 
 document.getElementById('scanBtn').addEventListener('click', async () => {
-    const movies = await window.api.selectFolder();
-    if (movies) renderMovies(movies);
+    const result = await window.api.selectFolder();
+    if (!result) return;
+    
+    const { movies, needsGeneration } = result;
+    
+    if (needsGeneration && needsGeneration.length > 0) {
+        showGeneratingLoader(0, needsGeneration.length);
+        isGenerating = true;
+        
+        const updatedMovies = await window.api.generatePreviews(needsGeneration);
+        
+        for (const updated of updatedMovies) {
+            const original = movies.find(m => m.videoPath === updated.videoPath);
+            if (original) {
+                original.previewPath = updated.previewPath;
+            }
+        }
+        
+        isGenerating = false;
+    }
+    
+    renderMovies(movies);
 });
 
 function renderMovies(movies) {
@@ -98,7 +163,7 @@ function renderMovies(movies) {
 
         el.innerHTML = `
             ${coverHtml}
-            <video class="movie-preview" muted preload="none"></video>
+            <video class="movie-preview" muted loop preload="none"></video>
             <div class="movie-overlay">
                 <div class="movie-title">${movie.name}</div>
                 <div class="movie-meta">
@@ -110,25 +175,38 @@ function renderMovies(movies) {
         // Preview on hover
         const previewVideo = el.querySelector('.movie-preview');
         let previewInterval = null;
-        let previewPositions = [0.1, 0.3, 0.5, 0.7, 0.9]; // 10%, 30%, 50%, 70%, 90%
-        let currentPosIndex = 0;
+        
+        // Check if generated preview exists
+        const hasPreview = movie.previewPath && movie.previewPath.length > 0;
         
         el.addEventListener('mouseenter', () => {
-            previewVideo.src = movie.videoPath;
-            previewVideo.load();
-            
-            previewVideo.onloadedmetadata = () => {
-                // Start at 10%
-                previewVideo.currentTime = previewVideo.duration * previewPositions[0];
-                previewVideo.play().catch(() => {});
-                el.classList.add('previewing');
+            if (hasPreview) {
+                // Use generated preview video - just play and loop
+                previewVideo.src = movie.previewPath;
+                previewVideo.load();
+                previewVideo.onloadeddata = () => {
+                    previewVideo.play().catch(() => {});
+                    el.classList.add('previewing');
+                };
+            } else {
+                // Fallback: seek through original video
+                const previewPositions = [0.1, 0.3, 0.5, 0.7, 0.9];
+                let currentPosIndex = 0;
                 
-                // Cycle through positions every 3 seconds
-                previewInterval = setInterval(() => {
-                    currentPosIndex = (currentPosIndex + 1) % previewPositions.length;
-                    previewVideo.currentTime = previewVideo.duration * previewPositions[currentPosIndex];
-                }, 3000);
-            };
+                previewVideo.src = movie.videoPath;
+                previewVideo.load();
+                
+                previewVideo.onloadedmetadata = () => {
+                    previewVideo.currentTime = previewVideo.duration * previewPositions[0];
+                    previewVideo.play().catch(() => {});
+                    el.classList.add('previewing');
+                    
+                    previewInterval = setInterval(() => {
+                        currentPosIndex = (currentPosIndex + 1) % previewPositions.length;
+                        previewVideo.currentTime = previewVideo.duration * previewPositions[currentPosIndex];
+                    }, 3000);
+                };
+            }
         });
         
         el.addEventListener('mouseleave', () => {
@@ -140,7 +218,6 @@ function renderMovies(movies) {
             previewVideo.src = '';
             previewVideo.load();
             el.classList.remove('previewing');
-            currentPosIndex = 0;
         });
         
         movieList.appendChild(el);
@@ -219,8 +296,19 @@ function unlockVolumeSlider() {
 // PROGRESS BAR & SEEKING
 // =====================================================
 const progressPreview = document.getElementById('progressPreview');
-const previewVideo = document.getElementById('previewVideo');
+const previewCanvas = document.getElementById('previewCanvas');
 const previewTime = document.getElementById('previewTime');
+const previewCtx = previewCanvas.getContext('2d');
+
+// Hidden video for frame capture
+const seekerPreviewVideo = document.createElement('video');
+seekerPreviewVideo.muted = true;
+seekerPreviewVideo.preload = 'metadata';
+
+// Delay state
+let previewDelayTimer = null;
+let previewVisible = false;
+const PREVIEW_DELAY = 200; // ms before showing
 
 progressBar.addEventListener('click', (e) => {
     const rect = progressBar.getBoundingClientRect();
@@ -228,7 +316,19 @@ progressBar.addEventListener('click', (e) => {
     video.currentTime = pos * video.duration;
 });
 
-// Progress hover preview
+progressBar.addEventListener('mouseenter', () => {
+    // Set video source for preview
+    if (video.src && seekerPreviewVideo.src !== video.src) {
+        seekerPreviewVideo.src = video.src;
+    }
+    
+    // Delay before showing preview
+    previewDelayTimer = setTimeout(() => {
+        previewVisible = true;
+        progressPreview.classList.add('visible');
+    }, PREVIEW_DELAY);
+});
+
 progressBar.addEventListener('mousemove', (e) => {
     if (!video.duration) return;
     
@@ -236,21 +336,32 @@ progressBar.addEventListener('mousemove', (e) => {
     const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const previewTimeValue = pos * video.duration;
     
-    // Position preview tooltip
+    // Update position and time
     progressPreview.style.left = `${pos * 100}%`;
-    
-    // Update time display
     previewTime.innerText = formatTime(previewTimeValue);
     
-    // Update preview video frame
-    if (previewVideo.src !== video.src && video.src) {
-        previewVideo.src = video.src;
+    // Seek immediately (no throttle for smooth scrubbing)
+    if (previewVisible) {
+        seekerPreviewVideo.currentTime = previewTimeValue;
     }
-    previewVideo.currentTime = previewTimeValue;
+});
+
+// Capture frame when seek completes
+seekerPreviewVideo.addEventListener('seeked', () => {
+    if (previewVisible) {
+        previewCtx.drawImage(seekerPreviewVideo, 0, 0, 160, 90);
+    }
 });
 
 progressBar.addEventListener('mouseleave', () => {
-    // Preview hides via CSS
+    // Cancel delay timer
+    if (previewDelayTimer) {
+        clearTimeout(previewDelayTimer);
+        previewDelayTimer = null;
+    }
+    
+    previewVisible = false;
+    progressPreview.classList.remove('visible');
 });
 
 video.addEventListener('timeupdate', () => {

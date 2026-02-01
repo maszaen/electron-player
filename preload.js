@@ -7,11 +7,16 @@ contextBridge.exposeInMainWorld('api', {
     refresh: () => ipcRenderer.invoke('window-refresh'),
     isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
     
-    // Listen for maximize state changes
     onMaximizeChange: (callback) => {
         ipcRenderer.on('window-maximized', (event, isMaximized) => callback(isMaximized));
     },
     
     scanDefault: () => ipcRenderer.invoke('scan-directory'),
     selectFolder: () => ipcRenderer.invoke('select-folder'),
+    
+    // Preview generation
+    generatePreviews: (movies) => ipcRenderer.invoke('generate-previews', movies),
+    onPreviewProgress: (callback) => {
+        ipcRenderer.on('preview-progress', (event, progress) => callback(progress));
+    },
 });
