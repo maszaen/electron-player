@@ -525,15 +525,50 @@ video {
     cursor: none;
 }
 
+/* =====================================================
+   TOP OVERLAY (Title + Sidebar Toggle)
+   ===================================================== */
+.top-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: transparent;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    z-index: 20;
+}
+
+.top-overlay > * {
+    pointer-events: auto;
+}
+
+/* Visibility synced with controls */
+.app-container.controls-visible .top-overlay,
+.video-container.paused .top-overlay {
+    opacity: 1;
+}
+
 .video-title {
-    font-size: 15px;
-    margin-bottom: 2px;
-    font-weight: 500;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 50px;
+    padding: 8px 16px;
     color: var(--text-primary);
-    margin-bottom: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    backdrop-filter: blur(4px);
+    
+    max-width: 60%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: all 0.2s ease;
 }
 
 /* =====================================================
@@ -673,7 +708,7 @@ video {
   flex-shrink: 0;
 }
 
-.icon-btn:hover, .volume-btn:hover, .skipper-btn:hover, .time-display:hover {
+.icon-btn:hover, .volume-btn:hover, .skipper-btn:hover, .time-display:hover, .video-title:hover {
     background: rgba(68, 68, 68, 0.42);
     color: var(--text-primary);
     border-color: rgba(117, 117, 117, 0.53);

@@ -268,6 +268,9 @@ video.addEventListener('click', (e) => {
 });
 
 function togglePlay() {
+    // Only toggle if a video is loaded
+    if (currentMovieIndex === -1 || !video.src) return;
+
     if (video.paused) {
         video.play();
         updatePlayIcon(true);

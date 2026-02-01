@@ -52,9 +52,13 @@
         <!-- Main Video Player -->
         <div class="main-content" id="playerContainer">
             
-            <video id="mainVideo">
-                <p>Format unsupported</p>
-            </video>
+            <!-- Top Overlay (Title + Sidebar Toggle) -->
+            <div class="top-overlay">
+                <div class="video-title" id="videoTitle">No Video Playing</div>
+                <button class="icon-btn" id="sidebarToggle" title="Toggle Sidebar">
+                    <i data-lucide="panel-right"></i>
+                </button>
+            </div>
 
             <!-- Empty State Placeholder -->
             <div class="video-placeholder" id="videoPlaceholder">
@@ -63,11 +67,12 @@
                 <p>Open the sidebar and select a video from your library</p>
             </div>
 
+            <video id="mainVideo">
+                <p>Format unsupported</p>
+            </video>
+
             <!-- Overlay Controls -->
             <div class="overlay-controls">
-                
-                <!-- Video Title -->
-                <div class="video-title" id="videoTitle">No Video Playing</div>
                 
                 <!-- Progress Bar -->
                 <div class="progress-container" id="progressBar">
@@ -128,10 +133,6 @@
                                 <button class="skip-btn" id="skipFwd30m">+30m</button>
                             </div>
                         </div>
-
-                        <button class="icon-btn" id="sidebarToggle" title="Toggle Sidebar">
-                            <i data-lucide="panel-right"></i>
-                        </button>
                         
                         <button class="icon-btn" id="fullscreenBtn" title="Fullscreen">
                             <i data-lucide="maximize"></i>
