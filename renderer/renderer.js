@@ -260,6 +260,16 @@ playBtn.addEventListener('click', togglePlay);
 
 // Video click with delay to distinguish from double-click (fullscreen)
 video.addEventListener('click', (e) => {
+    // Check if click is in overlay controls zone (bottom area)
+    const overlayControls = document.querySelector('.overlay-controls');
+    if (overlayControls) {
+        const rect = overlayControls.getBoundingClientRect();
+        // If click is within overlay controls Y range, ignore
+        if (e.clientY >= rect.top - 10) { // 10px buffer above controls
+            return;
+        }
+    }
+
     // Cancel any pending single click
     if (clickTimeout) {
         clearTimeout(clickTimeout);
@@ -280,12 +290,38 @@ function togglePlay() {
 
     if (video.paused) {
         video.play();
-        updatePlayIcon(true);
     } else {
         video.pause();
-        updatePlayIcon(false);
     }
+    // Icon update handled by native events below
 }
+
+// =====================================================
+// NATIVE PLAY/PAUSE EVENTS (Sync with keyboard/gesture)
+// =====================================================
+const playIndicator = document.getElementById('playIndicator');
+
+function showPlayIndicator(isPlaying) {
+    // Replace icon HTML (Lucide converts <i> to <svg>, so we need fresh element)
+    const iconName = isPlaying ? 'play' : 'pause';
+    playIndicator.innerHTML = `<i data-lucide="${iconName}"></i>`;
+    lucide.createIcons();
+    
+    // Trigger animation
+    playIndicator.classList.remove('animate');
+    void playIndicator.offsetWidth; // Force reflow
+    playIndicator.classList.add('animate');
+}
+
+video.addEventListener('play', () => {
+    updatePlayIcon(true);
+    showPlayIndicator(true);
+});
+
+video.addEventListener('pause', () => {
+    updatePlayIcon(false);
+    showPlayIndicator(false);
+});
 
 function updatePlayIcon(playing) {
     isPlaying = playing;

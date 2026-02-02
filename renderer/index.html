@@ -71,6 +71,11 @@
                 <p>Format unsupported</p>
             </video>
 
+            <!-- Play/Pause Indicator -->
+            <div class="play-indicator" id="playIndicator">
+                <i data-lucide="play" id="indicatorIcon"></i>
+            </div>
+
             <!-- Overlay Controls -->
             <div class="overlay-controls">
                 
@@ -79,8 +84,10 @@
                     <div class="progress-fill" id="progressFill"></div>
                     <div class="progress-thumb" id="progressThumb"></div>
                     <div class="progress-preview" id="progressPreview">
-                        <canvas class="progress-preview-canvas" id="previewCanvas" width="160" height="90"></canvas>
-                        <span class="progress-preview-time" id="previewTime">0:00</span>
+                        <div class="preview-block">
+                            <canvas class="progress-preview-canvas" id="previewCanvas" width="160" height="90"></canvas>
+                        </div>
+                        <span class="preview-time-pill" id="previewTime">0:00</span>
                     </div>
                 </div>
 
