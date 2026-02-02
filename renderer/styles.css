@@ -571,6 +571,15 @@ video {
     transition: all 0.2s ease;
 }
 
+.main-content:not(.has-video) .video-title {
+    cursor: pointer;
+}
+
+.main-content:not(.has-video) .video-title:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
 /* =====================================================
    PROGRESS BAR - Red with Dot
    ===================================================== */
@@ -693,11 +702,7 @@ video {
     justify-content: center;
     transition: all 0.2s ease;
     gap: 0;
-    /* backdrop-filter: blur(4px); */
-}
-
-.skipper-btn:hover {
-  padding-left: 4px;
+    backdrop-filter: blur(4px);
 }
 
 .icon-btn {
@@ -762,28 +767,78 @@ video {
     margin-left: 8px;
 }
 
-/* Skipper Button (Expands Left) */
+/* Skipper Button (Wrapper) */
 .skipper-btn {
-    /* Use row-reverse to put control content to the LEFT of the icon */
+    display: flex;
+    align-items: center;
+}
+
+/* Skipper Button (Wrapper) */
+.skipper-btn {
+    display: flex;
+    align-items: center;
+}
+
+/* Backward: Expand LEFT (Row Reverse) */
+.skipper-back {
     flex-direction: row-reverse;
 }
 
+.skipper-back .skipper-controls {
+    margin-right: 8px;
+}
+
+.skipper-back:hover .skipper-controls,
+.skipper-back .skipper-controls.expanded {
+    margin-right: 8px;
+}
+
+/* Forward: Expand RIGHT (Row Normal) */
+.skipper-fwd {
+    flex-direction: row;
+}
+
+.skipper-fwd .skipper-controls {
+    margin-left: 8px;
+}
+
+.skipper-fwd:hover .skipper-controls,
+.skipper-fwd .skipper-controls.expanded {
+    margin-left: 8px;
+}
+
+/* Common Skipper Controls Container */
 .skipper-controls {
     display: flex;
     align-items: center;
-    width: 0;
+    /* Use max-width for transition, not width */
+    max-width: 0; 
+    color: var(--text-primary);
     opacity: 0;
     overflow: hidden;
-    transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
-    margin-right: 0;
     gap: 0;
+    /* Transition for CLOSING (with delay) - explicit properties helps reliability */
+    transition: max-width 0.25s cubic-bezier(0.2, 0, 0, 1), 
+                opacity 0.25s cubic-bezier(0.2, 0, 0, 1),
+                margin 0.25s cubic-bezier(0.2, 0, 0, 1);
+    transition-delay: 2s;
 }
 
-.skipper-btn:hover .skipper-controls {
-    width: auto; /* Animate max-width instead for smoothness? width auto not animatable */
-    max-width: 500px; /* Hack for width transition */
+/* Ensure buttons don't wrap while sizing */
+.skipper-controls button {
+    flex-shrink: 0;
+}
+
+/* Cross-cancel utility class - Snap close immediately */
+.skipper-controls.force-close {
+    transition: none !important;
+}
+
+/* Open State (Controlled by JS) */
+.skipper-controls.expanded {
+    max-width: 500px;
     opacity: 1;
-    margin-right: 8px;
+    transition-delay: 0s; /* Open immediately */
 }
 
 /* Update slider track to match */
@@ -825,6 +880,8 @@ video {
     background: rgba(255,255,255,0.1);
 }
 
+.ski
+
 .skip-divider {
     width: 1px;
     height: 16px;
@@ -836,7 +893,7 @@ video {
 .time-display {
     margin-left: 4px; /* Adjust gap */
     padding: 6px 12px;
-    background: rgba(0, 0, 0, 0.3); /* Translucent pill */
+    background: rgba(0, 0, 0, 0.4); /* Translucent pill */
     border-radius: 50px;
     font-family: 'Roboto Condensed', sans-serif;
     font-size: 13px;
@@ -932,6 +989,25 @@ video {
   }
 }
 
-.skipper-btn, .volume-btn {
+.volume-btn {
     padding-left: 8px;
+}
+
+/* Skipper Button Padding (State-based) */
+
+/* Collapsed: Icon centered (symmetric padding) */
+.skipper-back,
+.skipper-fwd {
+    padding: 0 4px;
+}
+
+/* Icon offset workaround */
+.skipper-back > svg,
+.skipper-back > i {
+    transform: translateX(-4px);
+}
+
+.skipper-fwd > svg,
+.skipper-fwd > i {
+    transform: translateX(4px);
 }

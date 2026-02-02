@@ -248,6 +248,13 @@ function playMovie(index) {
     document.querySelector('.main-content').classList.add('has-video');
 }
 
+// Title click checks empty state
+titleDisplay.addEventListener('click', () => {
+    if (currentMovieIndex === -1) {
+        sidebar.classList.remove('collapsed');
+    }
+});
+
 // Play/Pause - Button always works immediately
 playBtn.addEventListener('click', togglePlay);
 
@@ -418,6 +425,48 @@ document.getElementById('skipFwd30m').addEventListener('click', () => skipTime(1
 function skipTime(seconds) {
     if (!video.duration) return;
     video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds));
+}
+
+// =====================================================
+// VOLUME CONTROL
+// =====================================================
+
+/* Skipper UX: Instant close of other skipper when hovering one */
+const skipperBack = document.querySelector('.skipper-back');
+const skipperFwd = document.querySelector('.skipper-fwd');
+
+if (skipperBack && skipperFwd) {
+     const backControls = skipperBack.querySelector('.skipper-controls');
+     const fwdControls = skipperFwd.querySelector('.skipper-controls');
+
+     // Helper to open controls
+     const openControls = (parentBtn, targetControls, otherParentBtn, otherControls) => {
+         // Open target (parent + controls)
+         parentBtn.classList.add('expanded');
+         targetControls.classList.remove('force-close');
+         targetControls.classList.add('expanded');
+         
+         // Close other INSTANTLY
+         if (otherControls) {
+            otherParentBtn.classList.remove('expanded');
+            otherControls.classList.add('force-close');
+            otherControls.classList.remove('expanded');
+         }
+     };
+
+     // Helper to close controls (normal delay)
+     const closeControls = (parentBtn, targetControls) => {
+         parentBtn.classList.remove('expanded');
+         targetControls.classList.remove('force-close'); // Ensure delay active
+         targetControls.classList.remove('expanded');
+     };
+
+     // Event Listeners
+     skipperBack.addEventListener('mouseenter', () => openControls(skipperBack, backControls, skipperFwd, fwdControls));
+     skipperBack.addEventListener('mouseleave', () => closeControls(skipperBack, backControls));
+
+     skipperFwd.addEventListener('mouseenter', () => openControls(skipperFwd, fwdControls, skipperBack, backControls));
+     skipperFwd.addEventListener('mouseleave', () => closeControls(skipperFwd, fwdControls));
 }
 
 // =====================================================
@@ -644,6 +693,14 @@ function startIdleTimer() {
     if (video.paused) return;
     
     controlsIdleTimer = setTimeout(() => {
+        // Prevent hiding if user is hovering over controls
+        const isHoveringControls = document.querySelector('.overlay-controls:hover') || document.querySelector('.top-overlay:hover');
+        
+        if (isHoveringControls) {
+            startIdleTimer(); // Restart timer, keep visible
+            return;
+        }
+
          if (!video.paused) {
             appContainer.classList.remove('controls-visible');
         }

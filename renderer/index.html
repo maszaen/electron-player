@@ -84,10 +84,9 @@
                     </div>
                 </div>
 
-                <!-- Controls Row -->
                 <div class="controls-row">
                     
-                    <!-- Left: Play, Volume, Time -->
+                    <!-- Left: Play, Volume, Time, Skipper Back -->
                     <div class="left-controls">
                         <!-- Play/Pause -->
                         <button class="icon-btn" id="playPauseBtn" title="Play/Pause">
@@ -106,26 +105,27 @@
                             <span class="separator">/</span>
                             <span id="totalTime">0:00</span>
                         </div>
-                    </div>
 
-                    <!-- Right: Skipper, Sidebar, Fullscreen -->
-                    <div class="right-controls">
-                        
-                        <!-- Skipper Expander -->
-                        <!-- Skipper Expander (Pill Style) -->
-                        <div class="skipper-btn" title="Skip Options">
-                            <i data-lucide="skip-forward"></i>
+                        <!-- Skipper Back (Expand Right) -->
+                        <div class="skipper-btn skipper-back" title="Rewind Options">
+                            <i data-lucide="skip-back"></i>
                             <div class="skipper-controls">
-                                <!-- Back -->
                                 <button class="skip-btn" id="skipBack30m">-30m</button>
                                 <button class="skip-btn" id="skipBack10m">-10m</button>
                                 <button class="skip-btn" id="skipBack1m">-1m</button>
                                 <button class="skip-btn" id="skipBack30s">-30s</button>
                                 <button class="skip-btn" id="skipBack10s">-10s</button>
-                                
-                                <div class="skip-divider"></div>
-                                
-                                <!-- Forward -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Skipper Fwd, Fullscreen -->
+                    <div class="right-controls">
+                        
+                        <!-- Skipper Fwd (Expand Right as per previous req) -->
+                        <div class="skipper-btn skipper-fwd" title="Skip Options">
+                            <i data-lucide="skip-forward"></i>
+                            <div class="skipper-controls">
                                 <button class="skip-btn" id="skipFwd10s">+10s</button>
                                 <button class="skip-btn" id="skipFwd30s">+30s</button>
                                 <button class="skip-btn" id="skipFwd1m">+1m</button>
