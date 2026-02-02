@@ -542,6 +542,95 @@ video {
 }
 
 /* =====================================================
+   SKIP INDICATORS (Arrow Keys)
+   ===================================================== */
+.skip-indicator {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 50;
+    transition: opacity 0.2s ease;
+}
+
+.skip-indicator.visible {
+    opacity: 1;
+}
+
+/* Positioning - at edge */
+.skip-left {
+    left: 5%;
+}
+
+.skip-right {
+    right: 5%;
+}
+
+/* Icon stack container */
+.skip-icon-stack {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+/* Both layers absolute positioned */
+.skip-icon-outline,
+.skip-icon-front {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 32px;
+    height: 32px;
+}
+
+/* Bottom layer - outline (black) */
+.skip-icon-outline svg {
+    width: 32px;
+    height: 32px;
+    stroke: rgba(0, 0, 0, 0.3);
+    stroke-width: 2.5;
+}
+
+/* Top layer - front (white) */
+.skip-icon-front svg {
+    width: 32px;
+    height: 32px;
+    stroke: white;
+    stroke-width: 2;
+}
+
+/* Amount text - base is 0.95, normal is 1 */
+.skip-amount {
+    font-size: 28px;
+    font-weight: 300;
+    color: white;
+    font-variant-numeric: tabular-nums;
+    transform: scale(0.95);
+    transition: transform 0.1s ease; /* Fast for scale up */
+    -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.3);
+}
+
+/* Normal state (scale 1) */
+.skip-amount.scale-up {
+    transform: scale(1);
+}
+
+/* Slow transition for bounce down */
+.skip-amount.bouncing {
+    transition: transform 0.15s ease;
+}
+
+/* Instant (no transition) */
+.skip-amount.instant {
+    transition: none;
+}
+
+/* =====================================================
    OVERLAY CONTROLS
    ===================================================== */
 .overlay-controls {
@@ -871,11 +960,6 @@ video {
     margin-right: 8px;
 }
 
-.skipper-back:hover .skipper-controls,
-.skipper-back .skipper-controls.expanded {
-    margin-right: 8px;
-}
-
 /* Forward: Expand RIGHT (Row Normal) */
 .skipper-fwd {
     flex-direction: row;
@@ -885,26 +969,16 @@ video {
     margin-left: 8px;
 }
 
-.skipper-fwd:hover .skipper-controls,
-.skipper-fwd .skipper-controls.expanded {
-    margin-left: 8px;
-}
-
 /* Common Skipper Controls Container */
 .skipper-controls {
     display: flex;
     align-items: center;
-    /* Use max-width for transition, not width */
-    max-width: 0; 
+    max-width: 0;
     color: var(--text-primary);
-    opacity: 1;
     overflow: hidden;
     gap: 0;
-    /* Transition for CLOSING (with delay) - explicit properties helps reliability */
-    transition: max-width 0.25s cubic-bezier(0.2, 0, 0, 1), 
-                opacity 0.25s cubic-bezier(0.2, 0, 0, 1),
-                margin 0.25s cubic-bezier(0.2, 0, 0, 1);
-    transition-delay: 2s;
+    /* Animation ONLY, NO delay - JS handles delay */
+    transition: max-width 0.35s ease, margin 0.35s ease;
 }
 
 /* Ensure buttons don't wrap while sizing */
@@ -912,15 +986,11 @@ video {
     flex-shrink: 0;
 }
 
-/* Cross-cancel utility class - Snap close immediately */
-.skipper-controls.force-close {
-    transition: none !important;
-}
-
-/* Open State (Controlled by JS) */
-.skipper-controls.expanded {
+/* Open on hover OR keep-open (JS controlled) */
+.skipper-btn:hover .skipper-controls,
+.skipper-controls.keep-open {
     max-width: 500px;
-    transition-delay: 0s; /* Open immediately */
+    transition-delay: 100ms; /* Small delay to prevent blink */
 }
 
 /* Update slider track to match */

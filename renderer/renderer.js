@@ -467,42 +467,75 @@ function skipTime(seconds) {
 // VOLUME CONTROL
 // =====================================================
 
-/* Skipper UX: Instant close of other skipper when hovering one */
+/* Skipper UX: JS handles 2s delay ONLY when fully open */
 const skipperBack = document.querySelector('.skipper-back');
 const skipperFwd = document.querySelector('.skipper-fwd');
 
 if (skipperBack && skipperFwd) {
-     const backControls = skipperBack.querySelector('.skipper-controls');
-     const fwdControls = skipperFwd.querySelector('.skipper-controls');
+    const backControls = skipperBack.querySelector('.skipper-controls');
+    const fwdControls = skipperFwd.querySelector('.skipper-controls');
+    
+    let backFullyOpen = false;
+    let fwdFullyOpen = false;
+    let backCloseTimeout = null;
+    let fwdCloseTimeout = null;
 
-     // Helper to open controls
-     const openControls = (parentBtn, targetControls, otherParentBtn, otherControls) => {
-         // Open target (parent + controls)
-         parentBtn.classList.add('expanded');
-         targetControls.classList.remove('force-close');
-         targetControls.classList.add('expanded');
-         
-         // Close other INSTANTLY
-         if (otherControls) {
-            otherParentBtn.classList.remove('expanded');
-            otherControls.classList.add('force-close');
-            otherControls.classList.remove('expanded');
-         }
-     };
+    // Detect fully open via transitionend
+    backControls.addEventListener('transitionend', (e) => {
+        if (e.propertyName === 'max-width') {
+            const maxW = getComputedStyle(backControls).maxWidth;
+            backFullyOpen = maxW !== '0px' && maxW !== '0';
+        }
+    });
 
-     // Helper to close controls (normal delay)
-     const closeControls = (parentBtn, targetControls) => {
-         parentBtn.classList.remove('expanded');
-         targetControls.classList.remove('force-close'); // Ensure delay active
-         targetControls.classList.remove('expanded');
-     };
+    fwdControls.addEventListener('transitionend', (e) => {
+        if (e.propertyName === 'max-width') {
+            const maxW = getComputedStyle(fwdControls).maxWidth;
+            fwdFullyOpen = maxW !== '0px' && maxW !== '0';
+        }
+    });
 
-     // Event Listeners
-     skipperBack.addEventListener('mouseenter', () => openControls(skipperBack, backControls, skipperFwd, fwdControls));
-     skipperBack.addEventListener('mouseleave', () => closeControls(skipperBack, backControls));
+    // Back: mouseenter - cancel pending close, clear other's keep-open
+    skipperBack.addEventListener('mouseenter', () => {
+        clearTimeout(backCloseTimeout);
+        backControls.classList.remove('keep-open');
+        // Cross-cancel: close Fwd immediately
+        clearTimeout(fwdCloseTimeout);
+        fwdControls.classList.remove('keep-open');
+        fwdFullyOpen = false;
+    });
 
-     skipperFwd.addEventListener('mouseenter', () => openControls(skipperFwd, fwdControls, skipperBack, backControls));
-     skipperFwd.addEventListener('mouseleave', () => closeControls(skipperFwd, fwdControls));
+    // Back: mouseleave - if fully open, hold 2s
+    skipperBack.addEventListener('mouseleave', () => {
+        if (backFullyOpen) {
+            backControls.classList.add('keep-open');
+            backCloseTimeout = setTimeout(() => {
+                backControls.classList.remove('keep-open');
+                backFullyOpen = false;
+            }, 2000);
+        }
+    });
+
+    // Fwd: mouseenter - cancel pending close, clear other's keep-open
+    skipperFwd.addEventListener('mouseenter', () => {
+        clearTimeout(fwdCloseTimeout);
+        fwdControls.classList.remove('keep-open');
+        // Cross-cancel: close Back immediately
+        clearTimeout(backCloseTimeout);
+        backControls.classList.remove('keep-open');
+        backFullyOpen = false;
+    });
+
+    // Fwd: mouseleave - if fully open, hold 2s
+    skipperFwd.addEventListener('mouseleave', () => {
+        if (fwdFullyOpen) {
+            fwdControls.classList.add('keep-open');
+            fwdCloseTimeout = setTimeout(() => {
+                fwdControls.classList.remove('keep-open');
+                fwdFullyOpen = false;
+            }, 2000);
+        }
+    });
 }
 
 // =====================================================
@@ -791,3 +824,144 @@ function formatSize(bytes) {
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + ['B', 'KB', 'MB', 'GB', 'TB'][i];
 }
+
+// =====================================================
+// ARROW KEY SKIP (Left/Right)
+// =====================================================
+const skipIndicatorLeft = document.getElementById('skipIndicatorLeft');
+const skipIndicatorRight = document.getElementById('skipIndicatorRight');
+const skipAmountLeft = document.getElementById('skipAmountLeft');
+const skipAmountRight = document.getElementById('skipAmountRight');
+
+let leftCumulative = 0;
+let rightCumulative = 0;
+let leftScaledUp = false;
+let rightScaledUp = false;
+let leftScaleDownTimeout = null;
+let rightScaleDownTimeout = null;
+let leftFadeOutTimeout = null;
+let rightFadeOutTimeout = null;
+
+function showSkipIndicator(direction) {
+    const isLeft = direction === 'left';
+    const indicator = isLeft ? skipIndicatorLeft : skipIndicatorRight;
+    const amountEl = isLeft ? skipAmountLeft : skipAmountRight;
+    
+    // Cancel other direction completely
+    if (isLeft) {
+        clearTimeout(rightScaleDownTimeout);
+        clearTimeout(rightFadeOutTimeout);
+        skipIndicatorRight.classList.remove('visible');
+        skipAmountRight.classList.remove('scale-up');
+        rightCumulative = 0;
+        rightScaledUp = false;
+    } else {
+        clearTimeout(leftScaleDownTimeout);
+        clearTimeout(leftFadeOutTimeout);
+        skipIndicatorLeft.classList.remove('visible');
+        skipAmountLeft.classList.remove('scale-up');
+        leftCumulative = 0;
+        leftScaledUp = false;
+    }
+    
+    // Track state BEFORE updating
+    const wasScaledUp = isLeft ? leftScaledUp : rightScaledUp;
+    const wasVisible = indicator.classList.contains('visible');
+    
+    // Update cumulative and video time
+    if (isLeft) {
+        leftCumulative += 10;
+        video.currentTime = Math.max(0, video.currentTime - 10);
+        // Delay 200ms before number shows
+        setTimeout(() => {
+            skipAmountLeft.textContent = `-${leftCumulative}`;
+        }, 200);
+    } else {
+        rightCumulative += 10;
+        video.currentTime = Math.min(video.duration, video.currentTime + 10);
+        // Delay 200ms before number shows
+        setTimeout(() => {
+            skipAmountRight.textContent = `+${rightCumulative}`;
+        }, 200);
+    }
+    
+    // Show indicator
+    indicator.classList.add('visible');
+    
+    // Scale animation logic
+    if (!wasScaledUp) {
+        if (!wasVisible) {
+            // First press: ANIMATED scale up 0.9 → 1, NO bounce after
+            amountEl.classList.add('scale-up');
+        } else {
+            // Press after bounce: INSTANT scale up 0.9 → 1
+            amountEl.classList.add('instant');
+            amountEl.classList.add('scale-up');
+            void amountEl.offsetWidth;
+            amountEl.classList.remove('instant');
+        }
+        if (isLeft) leftScaledUp = true;
+        else rightScaledUp = true;
+    }
+    // If wasScaledUp = true: just update number, NO animation
+    
+    // Clear timeouts
+    if (isLeft) {
+        clearTimeout(leftScaleDownTimeout);
+        clearTimeout(leftFadeOutTimeout);
+    } else {
+        clearTimeout(rightScaleDownTimeout);
+        clearTimeout(rightFadeOutTimeout);
+    }
+    
+    // Debounced bounce - ONLY for subsequent presses (wasVisible = true)
+    if (wasVisible) {
+        const scaleDownTimeout = setTimeout(() => {
+            // Add slow transition for bounce down
+            amountEl.classList.add('bouncing');
+            
+            // Scale down 1 → 0.9 (209ms animation)
+            amountEl.classList.remove('scale-up');
+            
+            // After 150ms animation, snap back to 1 (animated)
+            setTimeout(() => {
+                amountEl.classList.add('scale-up');
+                amountEl.classList.remove('bouncing');
+            }, 150);
+        }, 200);
+        if (isLeft) leftScaleDownTimeout = scaleDownTimeout;
+        else rightScaleDownTimeout = scaleDownTimeout;
+    }
+    
+    // Fade out after 1 second
+    const fadeOutTimeout = setTimeout(() => {
+        indicator.classList.remove('visible');
+        amountEl.classList.remove('scale-up');
+        if (isLeft) {
+            leftCumulative = 0;
+            leftScaledUp = false;
+        } else {
+            rightCumulative = 0;
+            rightScaledUp = false;
+        }
+    }, 1000);
+    if (isLeft) leftFadeOutTimeout = fadeOutTimeout;
+    else rightFadeOutTimeout = fadeOutTimeout;
+}
+
+// Keyboard listener
+document.addEventListener('keydown', (e) => {
+    // Only if video is loaded
+    if (currentMovieIndex === -1 || !video.src) return;
+    
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        showSkipIndicator('left');
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        showSkipIndicator('right');
+    }
+});
+
+// Initialize Lucide icons for skip indicators
+lucide.createIcons();
