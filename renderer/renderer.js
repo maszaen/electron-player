@@ -1138,6 +1138,22 @@ document.getElementById('sidebarToggle').addEventListener('click', () => {
 
 // =====================================================
 // =====================================================
+// NEXT VIDEO CARD CLICK
+// =====================================================
+document.querySelector('.next-card').addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Play next video immediately
+    if (currentMovieIndex < currentMovies.length - 1) {
+        // Clear timer if running
+        if (nextVideoInterval) clearInterval(nextVideoInterval);
+        
+        hideNextVideoOverlay();
+        video.classList.remove('fade-out-video');
+        playMovie(currentMovieIndex + 1);
+    }
+});
+
+// =====================================================
 // KEYBOARD SHORTCUTS
 // =====================================================
 document.addEventListener('keydown', (e) => {
@@ -1363,6 +1379,8 @@ function showSkipIndicator(direction) {
         isVideoEnded = false;
         video.classList.remove('fade-out-video');
         hideNextVideoOverlay();
+        // Automatically play when seeking back from end
+        video.play().catch(e => console.warn("Auto-play on seek failed", e));
     }
     
     // Show indicator
