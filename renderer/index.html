@@ -54,17 +54,26 @@
             
             <!-- Top Overlay (Title + Sidebar Toggle) -->
             <div class="top-overlay">
-                <div class="video-title" id="videoTitle">No Video Playing</div>
-                <button class="icon-btn" id="sidebarToggle" title="Toggle Sidebar">
-                    <i data-lucide="panel-right"></i>
-                </button>
+                <div class="top-left-controls">
+                    <button class="icon-btn" id="sidebarToggle" title="Toggle Sidebar">
+                        <i data-lucide="panel-right"></i>
+                    </button>
+                    <div class="video-title" id="videoTitle">No Video Playing</div>
+                </div>
             </div>
 
             <!-- Empty State Placeholder -->
             <div class="video-placeholder" id="videoPlaceholder">
-                <i data-lucide="play-circle"></i>
+                <!-- <i data-lucide="play-circle"></i> -->
+                <div class="logo-inside">
+                    <!-- <i data-lucide="play-circle"></i> -->
+                    <img src="../assets/icon-type.png" alt="App Icon" class="placeholder-logo">
+                </div>
+                <hr class="hr-vid-placeholder">
+
+
                 <h2>Ready to Play</h2>
-                <p>Open the sidebar and select a video from your library</p>
+                <p>Open the sidebar and select<br>a video from your library</p>
             </div>
 
             <video id="mainVideo">

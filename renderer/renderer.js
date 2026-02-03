@@ -246,6 +246,9 @@ function playMovie(index) {
     
     // Hide placeholder
     document.querySelector('.main-content').classList.add('has-video');
+    
+    // Collapse sidebar when video selected
+    sidebar.classList.add('collapsed');
 }
 
 // Title click checks empty state
@@ -731,6 +734,9 @@ document.addEventListener('keydown', (e) => {
 const appContainer = document.querySelector('.app-container');
 let controlsHideTimer = null;
 let controlsIdleTimer = null;
+
+// Initial load: Show controls
+appContainer.classList.add('controls-visible');
 
 function showControls() {
     // Clear pending hide timers

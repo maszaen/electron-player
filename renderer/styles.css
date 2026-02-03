@@ -37,10 +37,11 @@
 
 /* Kasih custom focus style yang lebih mantep */
 *:focus-visible {
-  outline: 2px solid;
+  outline: 2px solid rgba(255, 255, 255, 0.3); /* Langsung di sini warnanya */
   outline-offset: 2px;
-  /* atau bisa pake box-shadow */
-  /* box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5); */
+  
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px; /* Opsional biar cakep */
 }
 
 * {
@@ -63,6 +64,11 @@ body {
 /* =====================================================
    CUSTOM TITLE BAR
    ===================================================== */
+.placeholder-logo {
+  width: 200px;
+  opacity: 1;
+}
+
 .titlebar {
     height: 36px;
     background: linear-gradient(180deg, #151515 0%, #0a0a0a 100%);
@@ -446,6 +452,19 @@ video {
     background: #000;
 }
 
+
+.logo-inside {
+   background: linear-gradient(
+      to bottom,
+      #d682ff 70%,
+      #6829dd 95%
+    );
+    width: 100%;
+    height: 100%;
+    padding: 15px;
+    border-radius: 30px;
+    position: relative;
+}
 /* Empty State Placeholder */
 .video-placeholder {
     position: absolute;
@@ -457,9 +476,22 @@ video {
     align-items: center;
     gap: 12px;
     text-align: center;
-    color: var(--text-muted);
+    color: var(--text-primary);
     pointer-events: none;
+    padding: 25px;
     user-select: none;
+    border-radius: 40px;
+}
+
+.hr-vid-placeholder {
+  width: 80%;
+  height: 2px;
+  background-color: #d682ff;
+  outline: none;
+  border: none;
+  border-radius: 3px;
+
+  opacity: 0.4;
 }
 
 .video-placeholder svg {
@@ -472,13 +504,13 @@ video {
 .video-placeholder h2 {
     font-size: 18px;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     margin: 0;
 }
 
 .video-placeholder p {
     font-size: 13px;
-    color: var(--text-muted);
+    color: var(--text-primary);
     margin: 0;
     max-width: 280px;
     line-height: 1.5;
@@ -519,26 +551,26 @@ video {
 
 /* Animation: 200ms fade+scale in, 400ms idle, 200ms fade out = 800ms */
 .play-indicator.animate {
-    animation: playIndicatorAnim 0.8s ease-out forwards;
+    animation: playIndicatorAnim 800ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes playIndicatorAnim {
-    0% {
-        opacity: 0;
-        transform: translate(-50%, -50%) scale(0.5);
-    }
-    25% { /* 200ms mark */
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
-    }
-    75% { /* 600ms mark - end of idle */
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
-    }
-    100% { /* 800ms - fade out complete */
-        opacity: 0;
-        transform: translate(-50%, -50%) scale(1);
-    }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  25% { /* 200ms - smooth deceleration in */
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  75% { /* 600ms - hold steady */
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% { /* 800ms - clean fade */
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 /* =====================================================
@@ -645,6 +677,7 @@ video {
     opacity: 0;
     transition: opacity 0.25s ease;
     display: flex;
+    z-index: 10;
     flex-direction: column;
     gap: 9px;
 }
@@ -689,6 +722,14 @@ video {
     pointer-events: auto;
 }
 
+.top-left-controls {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 9px; /* Match overlay-controls gap */
+    max-width: 100%; /* Prevent title from taking too much space */
+}
+
 /* Visibility synced with controls */
 .app-container.controls-visible .top-overlay,
 .video-container.paused .top-overlay {
@@ -705,7 +746,7 @@ video {
     font-weight: 500;
     backdrop-filter: blur(4px);
     
-    max-width: 60%;
+    max-width: 50%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -916,7 +957,7 @@ video {
 .right-controls {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 9px;
 }
 
 /* Volume Slider */
@@ -1043,7 +1084,6 @@ video {
 
 /* Time display Pill */
 .time-display {
-    margin-left: 4px; /* Adjust gap */
     padding: 6px 12px;
     background: rgba(0, 0, 0, 0.4); /* Translucent pill */
     border-radius: 50px;
@@ -1162,4 +1202,35 @@ video {
 .skipper-fwd > svg,
 .skipper-fwd > i {
     transform: translateX(4px);
+}
+
+/* #mainVideo:not([src]) {
+  background-color: transparent;
+  position: relative;
+   background: linear-gradient(
+    to bottom,
+    #d682ff 90%,
+    #6829dd 100%
+  );
+} */
+
+.logo-inside::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  margin: 25px;
+  box-sizing: border-box;
+
+  background: #7f2ff4;
+  border-radius: 20px;
+  box-shadow: 0 0 20px 20px #7f2ff4;
+
+  z-index: 0;
+  pointer-events: none;
+}
+
+.placeholder-logo {
+  position: relative;
+  z-index: 1;
 }

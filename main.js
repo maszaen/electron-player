@@ -39,8 +39,10 @@ function saveConfig(config) {
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 1200,
-        height: 800,
+        width: 1280,
+        height: 756, // 720 (16:9 video) + 36 (titlebar)
+        minHeight: 283,
+        minWidth: 440,
         frame: false,
         backgroundColor: '#0f0f0f',
         icon: path.join(__dirname, 'assets', 'icon.png'),
