@@ -22,4 +22,9 @@ contextBridge.exposeInMainWorld('api', {
     onGenerationProgress: (callback) => {
         ipcRenderer.on('generation-progress', (event, progress) => callback(progress));
     },
+
+    // Repair Progress
+    onRepairProgress: (callback) => {
+        ipcRenderer.on('repair-progress', (event, percent) => callback(percent));
+    },
 });

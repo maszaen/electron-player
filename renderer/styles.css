@@ -1405,7 +1405,7 @@ video {
     position: absolute;
     bottom: 0;
     right: 225px;
-    width: 140px;
+    width: 180px;
     background: rgba(18, 18, 18, 0.98);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1522,8 +1522,8 @@ video {
 /* TOAST NOTIFICATIONS */
 #toast-container {
     position: fixed;
-    top: 70px; /* Below titlebar */
-    right: 20px;
+    top: 56px; /* Below titlebar */
+    right: 24px;
     z-index: 20000; /* Above modals */
     display: flex;
     flex-direction: column;

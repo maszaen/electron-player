@@ -145,6 +145,24 @@ async function handleScanResult(result) {
     }
 }
 
+// Repair Progress Listener
+window.api.onRepairProgress((percent) => {
+    const loader = document.getElementById('generationLoader');
+    const progressText = document.getElementById('genProgressText');
+    const progressBar = document.getElementById('genProgressBar');
+    
+    if (loader && progressText && progressBar) {
+        if (!loader.classList.contains('visible')) {
+            loader.classList.add('visible');
+        }
+        
+        progressText.innerText = `${percent}%`;
+        progressBar.style.width = `${percent}%`;
+        
+        // Optional: Update detail text if needed, but handled by initial call usually
+    }
+});
+
 document.getElementById('scanBtn').addEventListener('click', async () => {
     console.log('[UI] Scan button clicked');
     const result = await window.api.selectFolder();
@@ -768,12 +786,7 @@ document.addEventListener('keydown', (e) => {
             e.preventDefault();
             togglePlay();
             break;
-        case 'ArrowLeft':
-            skipTime(e.shiftKey ? -60 : -10);
-            break;
-        case 'ArrowRight':
-            skipTime(e.shiftKey ? 60 : 10);
-            break;
+        // ArrowLeft & ArrowRight handled by showSkipIndicator listener below
         case 'ArrowUp':
             e.preventDefault();
             video.volume = Math.min(1, video.volume + 0.1);
@@ -1142,6 +1155,7 @@ let currentRepairMode = 'remerge'; // 'remerge' | 'reencode'
 
 const menuRemerge = document.getElementById('menuRemerge');
 const menuReEncode = document.getElementById('menuReEncode');
+const menuFpsRepair = document.getElementById('menuFpsRepair');
 
 function openRepairModal(mode) {
     settingsMenu.classList.remove('visible');
@@ -1161,6 +1175,10 @@ function openRepairModal(mode) {
         titleEl.textContent = 'Remerge Video (Fast)';
         descEl.innerHTML = 'Fixes seeking lag by optimizing index structure (moov atom).<br>Lossless, very fast (few seconds).';
         confirmBtn.textContent = 'Start Remerge';
+    } else if (mode === 'fps') {
+        titleEl.textContent = 'Fix FPS / Timestamp (VFR)';
+        descEl.innerHTML = 'Forces Constant Frame Rate (CFR) and realigns timestamps.<br><b>Fixes "jumpy" seeking (skip 10s becoming 20s).</b>';
+        confirmBtn.textContent = 'Start FPS Fix';
     } else {
         titleEl.textContent = 'Re-encode Video (Deep)';
         descEl.innerHTML = 'Fixes severe lag by restructuring keyframes (GOP).<br><b>Note: Takes longer (1-3 mins)</b> but guarantees smooth seeking.';
@@ -1172,6 +1190,7 @@ function openRepairModal(mode) {
 
 if (menuRemerge) menuRemerge.addEventListener('click', () => openRepairModal('remerge'));
 if (menuReEncode) menuReEncode.addEventListener('click', () => openRepairModal('reencode'));
+if (menuFpsRepair) menuFpsRepair.addEventListener('click', () => openRepairModal('fps'));
 
 if (cancelRepairBtn) {
     cancelRepairBtn.addEventListener('click', () => {
@@ -1197,12 +1216,19 @@ if (confirmRepairBtn) {
         video.load();
         
         // Show Generating Loader
-        const actionName = currentRepairMode === 'remerge' ? 'Remerging' : 'Re-encoding';
+        let actionName = 'Processing';
+        if (currentRepairMode === 'remerge') actionName = 'Remerging';
+        else if (currentRepairMode === 'reencode') actionName = 'Re-encoding';
+        else if (currentRepairMode === 'fps') actionName = 'Fixing FPS';
+        
         showGeneratingLoader(0, 1, `${actionName}: ${movie.name}`);
         
         try {
             // Invoke Repair based on mode
-            const channel = currentRepairMode === 'remerge' ? 'repair-video' : 'reencode-video';
+            let channel = 'repair-video';
+            if (currentRepairMode === 'reencode') channel = 'reencode-video';
+            if (currentRepairMode === 'fps') channel = 'fps-repair';
+            
             const newPath = await window.api.invoke(channel, movie.videoPath);
             
             // On Success

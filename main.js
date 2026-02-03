@@ -77,6 +77,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+    cleanupTempFiles(); // Clean orphaned files from previous session
     createWindow();
 
     app.on('activate', () => {
@@ -123,11 +124,77 @@ function getThumbnailDir(rootPath, videoPath, mode) {
     }
 }
 
+// =====================================================
+// TEMP FILE CLEANUP SYSTEM
+// =====================================================
+const tempTrackerPath = path.join(app.getPath('userData'), 'temp-files.json');
+
+function loadTempTracker() {
+    try {
+        if (fs.existsSync(tempTrackerPath)) {
+            return JSON.parse(fs.readFileSync(tempTrackerPath, 'utf-8'));
+        }
+    } catch { }
+    return [];
+}
+
+function saveTempTracker(list) {
+    try {
+        fs.writeFileSync(tempTrackerPath, JSON.stringify(list));
+    } catch (e) { console.error('Failed to save temp tracker:', e); }
+}
+
+function addTempFile(filePath) {
+    const list = loadTempTracker();
+    if (!list.includes(filePath)) {
+        list.push(filePath);
+        saveTempTracker(list);
+    }
+}
+
+function removeTempFile(filePath) {
+    const list = loadTempTracker();
+    const newList = list.filter(p => p !== filePath);
+    saveTempTracker(newList);
+}
+
+function cleanupTempFiles() {
+    const list = loadTempTracker();
+    if (list.length === 0) return;
+
+    console.log(`[CLEANUP] Found ${list.length} orphaned temp files.`);
+    let cleaned = 0;
+    const remaining = [];
+
+    for (const filePath of list) {
+        try {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                console.log(`[CLEANUP] Deleted: ${filePath}`);
+                cleaned++;
+            }
+        } catch (e) {
+            console.error(`[CLEANUP] Failed to delete ${filePath}:`, e);
+            remaining.push(filePath); // Keep in list if failed (maybe locked)
+        }
+    }
+    
+    // Update list with only truly stuck files
+    saveTempTracker(remaining);
+    console.log(`[CLEANUP] Done. Cleaned: ${cleaned}, Remaining: ${remaining.length}`);
+}
+
+// Helpers
+function isTempVideoFile(filename) {
+    return filename.includes('.repaired.mp4') || filename.includes('.reencoded.mp4') || filename.includes('.tmp.mp4');
+}
+
 // Check scanning mode for a folder
 function detectFolderMode(folderPath) {
     try {
         const items = fs.readdirSync(folderPath, { withFileTypes: true });
-        const videos = items.filter(i => i.isFile() && isVideoFile(i.name));
+        // Exclude temp files from detection
+        const videos = items.filter(i => i.isFile() && isVideoFile(i.name) && !isTempVideoFile(i.name));
         
         // Strict Folder Mode: Only 1 video file in the folder
         if (videos.length === 1) {
@@ -203,8 +270,8 @@ function scanRecursive(currentPath, rootPath, depth, maxDepth, movies) {
         // Determination of Scan Mode for THIS video
         const currentMode = (mode === 'folder-based') ? 'folder-based' : 'file-based';
         
-        // Display Name: Folder Name (if folder-based) OR File Name
-        const displayName = (currentMode === 'folder-based') ? dirName : videoName;
+        // Display Name: ALWAYS use File Name (User preference: folder name is unreliable)
+        const displayName = videoName;
         
         // Thumbnail Directory (New Centralized Structure)
         const thumbnailDir = getThumbnailDir(rootPath, videoPath, currentMode);
@@ -475,22 +542,35 @@ ipcMain.handle('repair-video', async (event, videoPath) => {
             
             console.log(`[REPAIR] Starting conversion to MP4...`);
             console.log(`[REPAIR] Temp: ${tempPath}`);
+            
+            // Track temp file
+            addTempFile(tempPath);
 
             ffmpeg(normVideoPath)
                 .outputOptions(outputOptions)
                 .output(tempPath)
                 .format('mp4') // Explicitly force MP4 container
+                // PROGRESS EVENT (Added for consistency)
+                .on('progress', (p) => {
+                    if (p.percent) {
+                        event.sender.send('repair-progress', Math.round(p.percent));
+                    }
+                })
                 .on('start', (cmd) => {
                     console.log('[REPAIR] Command:', cmd);
                 })
                 .on('error', (err) => {
                     console.error('[REPAIR] Error:', err);
                     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+                    removeTempFile(tempPath); // Clean from tracker
                     reject(err);
                 })
                 .on('end', () => {
                     console.log('[REPAIR] Finished. Waiting for locks to release...');
                     
+                    // Final progress
+                    event.sender.send('repair-progress', 100);
+
                     // Add delay to ensure FFmpeg/OS fully releases file locks
                     setTimeout(() => {
                         try {
@@ -518,6 +598,7 @@ ipcMain.handle('repair-video', async (event, videoPath) => {
                             fs.renameSync(tempPath, finalPath);
                             
                             console.log(`[REPAIR] Success. New path: ${finalPath}`);
+                            removeTempFile(tempPath); // Success! Remove from tracker
                             resolve(finalPath);
                         } catch (e) {
                             console.error('[REPAIR] Swap failed:', e);
@@ -527,12 +608,174 @@ ipcMain.handle('repair-video', async (event, videoPath) => {
                             } catch (cleanupErr) {
                                 console.warn('[REPAIR] Failed to cleanup temp file:', cleanupErr.message);
                             }
+                            removeTempFile(tempPath); // Clean from tracker
                             reject(e);
                         }
                     }, 1000); // 1 second buffer
                 })
                 .run();
         });
+    });
+});
+
+ipcMain.handle('reencode-video', async (event, videoPath) => {
+    return new Promise((resolve, reject) => {
+        const dir = path.dirname(videoPath);
+        const name = path.parse(videoPath).name;
+        const normVideoPath = path.normalize(videoPath);
+        const tempPath = path.normalize(path.join(dir, `${name}.reencoded.mp4`));
+        const finalPath = path.normalize(path.join(dir, `${name}.mp4`));
+        
+        console.log(`[REENCODE] Processing: ${normVideoPath}`);
+        
+        // Track temp file
+        addTempFile(tempPath);
+        
+        ffmpeg(normVideoPath)
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .outputOptions([
+                '-preset ultrafast', // EXTREME SPEED
+                '-tune zerolatency',
+                '-crf 28',           // Slightly lower quality for speed (visually OK)
+                '-g 30',             // Keyframe every 1s (30fps) - very smooth seeking
+                '-sc_threshold 0',
+                '-movflags +faststart'
+            ])
+            .output(tempPath)
+            .format('mp4')
+            // PROGRESS EVENT
+            .on('progress', (p) => {
+                if (p.percent) {
+                    event.sender.send('repair-progress', Math.round(p.percent));
+                    console.log(`[REENCODE] Progress: ${Math.round(p.percent)}%`);
+                }
+            })
+            .on('start', (cmd) => {
+                console.log('[REENCODE] Command:', cmd);
+            })
+            .on('error', (err) => {
+                console.error('[REENCODE] Error:', err);
+                if (fs.existsSync(tempPath)) {
+                    try { fs.unlinkSync(tempPath); } catch {}
+                }
+                removeTempFile(tempPath); // Clean from tracker
+                reject(err);
+            })
+            .on('end', () => {
+                console.log('[REENCODE] Finished. Swapping files...');
+                // Final progress
+                event.sender.send('repair-progress', 100);
+
+                setTimeout(() => {
+                    try {
+                        if (fs.existsSync(normVideoPath)) {
+                            try { fs.rmSync(normVideoPath, { force: true }); }
+                            catch(rmErr) {
+                                const start = Date.now();
+                                while (Date.now() - start < 500) {} 
+                                fs.rmSync(normVideoPath, { force: true });
+                            }
+                        }
+                        
+                        if (fs.existsSync(finalPath) && finalPath !== normVideoPath) {
+                             fs.rmSync(finalPath, { force: true });
+                        }
+                        
+                        fs.renameSync(tempPath, finalPath);
+                        console.log(`[REENCODE] Success. New path: ${finalPath}`);
+                        removeTempFile(tempPath); // Success! Remove from tracker
+                        resolve(finalPath);
+                    } catch (e) {
+                        console.error('[REENCODE] Swap failed:', e);
+                        try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+                        removeTempFile(tempPath); // Clean from tracker
+                        reject(e);
+                    }
+                }, 1000);
+            })
+            .run();
+    });
+});
+
+ipcMain.handle('fps-repair', async (event, videoPath) => {
+    return new Promise((resolve, reject) => {
+        const dir = path.dirname(videoPath);
+        const name = path.parse(videoPath).name;
+        const normVideoPath = path.normalize(videoPath);
+        const tempPath = path.normalize(path.join(dir, `${name}.repaired-fps.mp4`));
+        const finalPath = path.normalize(path.join(dir, `${name}.mp4`));
+        
+        console.log(`[FPS-REPAIR] Processing: ${normVideoPath}`);
+        
+        // Track temp file
+        addTempFile(tempPath);
+        
+        ffmpeg(normVideoPath)
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .outputOptions([
+                '-preset superfast',     
+                '-tune zerolatency',     
+                '-crf 26',               
+                '-fps_mode cfr',         // FORCE CONSTANT FRAME RATE
+                '-force_key_frames expr:gte(t,n_forced*1)', // Force Keyframe EVERY 1 SECOND
+                '-sc_threshold 0',       
+                '-movflags +faststart'
+            ])
+            .output(tempPath)
+            .format('mp4')
+            // PROGRESS EVENT
+            .on('progress', (p) => {
+                if (p.percent) {
+                    event.sender.send('repair-progress', Math.round(p.percent));
+                    console.log(`[FPS-REPAIR] Progress: ${Math.round(p.percent)}%`);
+                }
+            })
+            .on('start', (cmd) => {
+                console.log('[FPS-REPAIR] Command:', cmd);
+            })
+            .on('error', (err) => {
+                console.error('[FPS-REPAIR] Error:', err);
+                if (fs.existsSync(tempPath)) {
+                    try { fs.unlinkSync(tempPath); } catch {}
+                }
+                removeTempFile(tempPath); // Clean from tracker
+                reject(err);
+            })
+            .on('end', () => {
+                console.log('[FPS-REPAIR] Finished. Swapping files...');
+                
+                event.sender.send('repair-progress', 100);
+
+                setTimeout(() => {
+                    try {
+                        if (fs.existsSync(normVideoPath)) {
+                            try { fs.rmSync(normVideoPath, { force: true }); }
+                            catch(rmErr) {
+                                const start = Date.now();
+                                while (Date.now() - start < 500) {} 
+                                fs.rmSync(normVideoPath, { force: true });
+                            }
+                        }
+                        
+                        if (fs.existsSync(finalPath) && finalPath !== normVideoPath) {
+                             fs.rmSync(finalPath, { force: true });
+                        }
+                        
+                        fs.renameSync(tempPath, finalPath);
+                        console.log(`[FPS-REPAIR] Success. New path: ${finalPath}`);
+                        removeTempFile(tempPath); // Success! Remove from tracker
+                        resolve(finalPath);
+                    } catch (e) {
+                        console.error('[FPS-REPAIR] Swap failed:', e);
+                        try { if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath); } catch {}
+                        removeTempFile(tempPath); // Clean from tracker
+                        reject(e);
+                    }
+                }, 1000);
+            })
+            .run();
     });
 });
 
@@ -606,6 +849,8 @@ function generatePreviewVideo(videoPath, outputPath) {
 // Helpers
 function isVideoFile(filename) {
     const ext = filename.toLowerCase();
+    // Exclude temp files from general video detection too
+    if (isTempVideoFile(filename)) return false;
     return ext.endsWith('.mp4') || ext.endsWith('.webm') || ext.endsWith('.mkv') || ext.endsWith('.avi') || ext.endsWith('.mov');
 }
 
