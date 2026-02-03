@@ -416,29 +416,54 @@ playBtn.addEventListener('click', (e) => {
 });
 
 // Video click with delay to distinguish from double-click (fullscreen)
-video.addEventListener('click', (e) => {
-    // Check if click is in overlay controls zone (bottom area)
+// Video click with delay to distinguish from double-click (fullscreen)
+// Use container to catch clicks even if blocked by transparent overlays
+const playerContainer = document.getElementById('playerContainer');
+
+playerContainer.addEventListener('click', (e) => {
+    // IGNORE CLICKS ON INTERACTIVE ELEMENTS
+    // Check if target is button, input, or inside menu/controls
+    if (e.target.closest('button') || 
+        e.target.closest('input') || 
+        e.target.closest('.context-menu') ||
+        e.target.closest('.modal-content') ||
+        e.target.closest('.sidebar')) {
+        return;
+    }
+
+    // Check if click is in overlay controls zone (bottom area) explicitly
     const overlayControls = document.querySelector('.overlay-controls');
     if (overlayControls) {
         const rect = overlayControls.getBoundingClientRect();
-        // If click is within overlay controls Y range, ignore
-        if (e.clientY >= rect.top - 10) { // 10px buffer above controls
+        if (e.clientY >= rect.top - 10) { 
             return;
         }
+    }
+    
+    // Check Top Controls (Title bar area)
+    const topOverlay = document.querySelector('.top-overlay');
+    if (topOverlay) {
+        const rect = topOverlay.getBoundingClientRect();
+        // Only if hitting actual controls, but we used closest('button') above.
+        // But top-left-controls allows clicking title?
+        // Title click is handled by titleDisplay listener.
+        // If user clicks empty space in top bar, toggle play?
+        // Let's allow it for now, usually fine.
     }
 
     // Cancel any pending single click
     if (clickTimeout) {
         clearTimeout(clickTimeout);
         clickTimeout = null;
-        return; // This was second click of double-click, ignore
+        return; // Double click logic handles fullscreen elsewhere?
+        // Actually, dblclick is not handled here, just preventing single click.
     }
     
     // Set a timeout - if no second click, execute single click action
     clickTimeout = setTimeout(() => {
         clickTimeout = null;
         togglePlay();
-    }, CLICK_DELAY);
+    }, 250); // CLICK_DELAY
 });
 
 function togglePlay() {
