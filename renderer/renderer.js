@@ -432,31 +432,21 @@ playerContainer.addEventListener('click', (e) => {
     }
 
     // Check if click is in overlay controls zone (bottom area) explicitly
+    // This prevents clicks on the control bar area from toggling the video
     const overlayControls = document.querySelector('.overlay-controls');
     if (overlayControls) {
         const rect = overlayControls.getBoundingClientRect();
+        // If click is within overlay controls Y range (plus buffer), ignore
         if (e.clientY >= rect.top - 10) { 
             return;
         }
-    }
-    
-    // Check Top Controls (Title bar area)
-    const topOverlay = document.querySelector('.top-overlay');
-    if (topOverlay) {
-        const rect = topOverlay.getBoundingClientRect();
-        // Only if hitting actual controls, but we used closest('button') above.
-        // But top-left-controls allows clicking title?
-        // Title click is handled by titleDisplay listener.
-        // If user clicks empty space in top bar, toggle play?
-        // Let's allow it for now, usually fine.
     }
 
     // Cancel any pending single click
     if (clickTimeout) {
         clearTimeout(clickTimeout);
         clickTimeout = null;
-        return; // Double click logic handles fullscreen elsewhere?
-        // Actually, dblclick is not handled here, just preventing single click.
+        return; // Double click detected (will be handled by dblclick listener on video/container)
     }
     
     // Set a timeout - if no second click, execute single click action
@@ -1146,8 +1136,6 @@ document.getElementById('sidebarToggle').addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
 });
 
-// =====================================================
-// KEYBOARD SHORTCUTS
 // =====================================================
 // =====================================================
 // KEYBOARD SHORTCUTS
