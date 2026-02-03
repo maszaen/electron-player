@@ -432,6 +432,98 @@ ipcMain.handle('generate-assets', async (event, { movies, types }) => {
     return movies;
 });
 
+// =====================================================
+// VIDEO REPAIR LOGIC
+// =====================================================
+// =====================================================
+// VIDEO REPAIR LOGIC
+// =====================================================
+ipcMain.handle('repair-video', async (event, videoPath) => {
+    return new Promise((resolve, reject) => {
+        // Force output to be .mp4 (Container Conversion / Optimization)
+        const dir = path.dirname(videoPath);
+        const name = path.parse(videoPath).name;
+        // Normalize paths to avoid confusion
+        const normVideoPath = path.normalize(videoPath);
+        const tempPath = path.normalize(path.join(dir, `${name}.repaired.mp4`));
+        const finalPath = path.normalize(path.join(dir, `${name}.mp4`));
+        
+        console.log(`[REPAIR] Probing: ${normVideoPath}`);
+        
+        // 1. Probe to check codecs
+        ffmpeg.ffprobe(normVideoPath, (err, metadata) => {
+            if (err) {
+                console.error('[REPAIR] Probe failed:', err);
+                return reject(err);
+            }
+            
+            // 2. Build Options
+            const outputOptions = [
+                '-c', 'copy',                // Stream copy (fast, lossless)
+                '-movflags', '+faststart'    // Optimize Atom placement for seeking
+            ];
+            
+            // Only add AAC filter if AAC stream is present
+            const hasAac = metadata.streams.some(s => s.codec_name === 'aac' && s.codec_type === 'audio');
+            
+            if (hasAac) {
+                console.log('[REPAIR] AAC Audio detected. Adding bitstream filter.');
+                outputOptions.push('-bsf:a', 'aac_adtstoasc');
+            } else {
+                console.log('[REPAIR] Non-AAC Audio (or no audio). Skipping aac_adtstoasc.');
+            }
+            
+            console.log(`[REPAIR] Starting conversion to MP4...`);
+            console.log(`[REPAIR] Temp: ${tempPath}`);
+
+            ffmpeg(normVideoPath)
+                .outputOptions(outputOptions)
+                .output(tempPath)
+                .format('mp4') // Explicitly force MP4 container
+                .on('start', (cmd) => {
+                    console.log('[REPAIR] Command:', cmd);
+                })
+                .on('error', (err) => {
+                    console.error('[REPAIR] Error:', err);
+                    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+                    reject(err);
+                })
+                .on('end', () => {
+                    console.log('[REPAIR] Finished. Swapping files...');
+                    try {
+                        // 1. Remove original file (even if it was .mkv)
+                        if (fs.existsSync(normVideoPath)) {
+                             // Retry logic for file lock?
+                             try {
+                                fs.rmSync(normVideoPath, { force: true });
+                             } catch(rmErr) {
+                                 console.warn('[REPAIR] Could not delete original immediately (Lock?). Waiting 1s...');
+                                 // This is risky in async context without pause, but let's try strict sync first.
+                                 throw rmErr; 
+                             }
+                        }
+                        
+                        // 2. Rename temp file to final .mp4 path
+                        if (fs.existsSync(finalPath) && finalPath !== normVideoPath) {
+                             fs.rmSync(finalPath, { force: true });
+                        }
+                        
+                        fs.renameSync(tempPath, finalPath);
+                        
+                        console.log(`[REPAIR] Success. New path: ${finalPath}`);
+                        resolve(finalPath);
+                    } catch (e) {
+                        console.error('[REPAIR] Swap failed:', e);
+                        // Cleanup temp if swap failed
+                        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+                        reject(e);
+                    }
+                })
+                .run();
+        });
+    });
+});
+
 // Updated Preview Generator (Uses output path directly)
 function generatePreviewVideo(videoPath, outputPath) {
     return new Promise((resolve, reject) => {
@@ -440,6 +532,7 @@ function generatePreviewVideo(videoPath, outputPath) {
         
         ffmpeg.ffprobe(videoPath, (err, metadata) => {
             if (err) return reject(err);
+
             
             const duration = metadata.format.duration;
             const positions = [0.1, 0.3, 0.5, 0.7, 0.9];

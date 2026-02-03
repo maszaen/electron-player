@@ -181,6 +181,40 @@
                             </div>
                         </div>
                         
+                        <!-- Settings Button & Menu -->
+                        <div class="settings-wrapper" style="position: relative;">
+                            <button class="icon-btn" id="settingsBtn" title="Settings">
+                                <i data-lucide="settings"></i>
+                            </button>
+                            
+                            <!-- Settings Menu -->
+                            <div class="context-menu" id="settingsMenu">
+                                <div class="menu-item" id="menuRepair">
+                                  <div class="menu-item-content" id="menuRepair">
+                                    <i data-lucide="wrench" style="width: 14px; height: 14px;"></i> 
+                                    <span>Repair Video</span>
+                                  </div>
+                                </div>
+                                <div class="menu-item has-submenu" id="menuSpeed">
+                                    <div class="menu-item-content">
+                                        <i data-lucide="gauge" style="width: 14px; height: 14px;"></i>
+                                        <span>Playback Speed</span>
+                                    </div>
+                                    <i data-lucide="chevron-right" class="submenu-arrow" style="width: 14px; height: 14px;"></i>
+                                    
+                                    <!-- Submenu -->
+                                    <div class="submenu">
+                                        <div class="menu-item speed-opt" data-speed="0.5">0.5x</div>
+                                        <div class="menu-item speed-opt" data-speed="0.75">0.75x</div>
+                                        <div class="menu-item speed-opt active" data-speed="1">Normal</div>
+                                        <div class="menu-item speed-opt" data-speed="1.25">1.25x</div>
+                                        <div class="menu-item speed-opt" data-speed="1.5">1.5x</div>
+                                        <div class="menu-item speed-opt" data-speed="2">2.0x</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <button class="icon-btn" id="fullscreenBtn" title="Fullscreen">
                             <i data-lucide="maximize"></i>
                         </button>
@@ -189,6 +223,17 @@
                 </div>
             </div>
 
+            <!-- Repair Confirmation Modal -->
+            <div class="modal-overlay" id="repairModal">
+                <div class="modal-content">
+                    <h3 class="modal-title">Repair Video</h3>
+                    <p class="modal-desc">This process helps fix seeking lag by optimizing video indexing.<br>It is lossless and usually takes a few seconds.</p>
+                    <div class="modal-actions">
+                        <button class="modal-btn cancel" id="cancelRepair">Cancel</button>
+                        <button class="modal-btn confirm" id="confirmRepair">Start Repair</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>

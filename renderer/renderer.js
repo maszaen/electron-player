@@ -1062,3 +1062,154 @@ window.addEventListener('load', () => {
 
 // Initialize Lucide icons for skip indicators
 lucide.createIcons();
+
+// =====================================================
+// SETTINGS & REPAIR LOGIC
+// =====================================================
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsMenu = document.getElementById('settingsMenu');
+const repairModal = document.getElementById('repairModal');
+const cancelRepairBtn = document.getElementById('cancelRepair');
+const confirmRepairBtn = document.getElementById('confirmRepair');
+
+// Toggle Settings Menu
+if (settingsBtn) {
+    settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        settingsMenu.classList.toggle('visible');
+    });
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+    if (settingsMenu && settingsMenu.classList.contains('visible') && !settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+        settingsMenu.classList.remove('visible');
+    }
+});
+
+// Playback Speed Logic
+document.querySelectorAll('.speed-opt').forEach(opt => {
+    opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const speed = parseFloat(opt.dataset.speed);
+        
+        if (video) {
+            video.playbackRate = speed;
+            
+            // Update UI
+            document.querySelectorAll('.speed-opt').forEach(o => o.classList.remove('active'));
+            opt.classList.add('active');
+            
+            // Close menu
+            settingsMenu.classList.remove('visible');
+        }
+    });
+});
+
+// Repair Video Logic
+const menuRepair = document.getElementById('menuRepair');
+if (menuRepair) {
+    menuRepair.addEventListener('click', () => {
+        settingsMenu.classList.remove('visible');
+        
+        if (currentMovieIndex === -1) {
+            // Optional: Show toast "No video selected"
+            return;
+        }
+        
+        // Show Modal
+        repairModal.classList.add('visible');
+    });
+}
+
+if (cancelRepairBtn) {
+    cancelRepairBtn.addEventListener('click', () => {
+        repairModal.classList.remove('visible');
+    });
+}
+
+if (confirmRepairBtn) {
+    confirmRepairBtn.addEventListener('click', async () => {
+        repairModal.classList.remove('visible');
+        
+        if (currentMovieIndex === -1) return;
+        const movie = currentMovies[currentMovieIndex];
+        
+        // Capture State
+        let wasPlaying = !video.paused;
+        let savedTime = video.currentTime;
+        console.log(`[REPAIR] Snapshot: Time=${savedTime}, Playing=${wasPlaying}`);
+        
+        // UNLOAD VIDEO TO RELEASE LOCK
+        // Important: Windows locks the file if it's in the <video> tag
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        
+        // Show Toast Loader
+        showGeneratingLoader(0, 1, `Repairing: ${movie.name}`);
+        
+        try {
+            // Invoke Repair (Returns new path, likely .mp4)
+            const newPath = await window.api.invoke('repair-video', movie.videoPath);
+            
+            // On Success
+            console.log(`[REPAIR] Completed. New path: ${newPath}`);
+            
+            // Update State with New Path
+            movie.videoPath = newPath;
+            currentMovies[currentMovieIndex].videoPath = newPath;
+            
+            // Update Toast
+            showGeneratingLoader(1, 1, 'Repair Complete');
+            
+            // Reload Video Source
+            const newSrc = `file://${newPath}?t=${Date.now()}`;
+            const currentRate = video.playbackRate;
+            
+            video.src = newSrc;
+            video.playbackRate = currentRate;
+            
+            // Restore Timestamp (-2s safety)
+            video.addEventListener('loadedmetadata', () => {
+                const seekTime = Math.max(0, savedTime - 2);
+                video.currentTime = seekTime;
+                if (wasPlaying) {
+                    video.play().catch(e => console.error("Resume failed:", e));
+                    // Update UI icon
+                    const playIcon = document.getElementById('playIcon');
+                    if (playIcon && typeof lucide !== 'undefined') {
+                        playIcon.setAttribute('data-lucide', 'pause');
+                        lucide.createIcons();
+                    }
+                }
+            }, { once: true });
+
+            
+            // Hide Loader after delay
+            setTimeout(() => {
+                const loader = document.getElementById('generationLoader');
+                if (loader) {
+                    loader.classList.add('hiding');
+                    loader.classList.remove('visible');
+                    setTimeout(() => loader.classList.remove('hiding'), 400);
+                }
+            }, 1000);
+            
+        } catch (err) {
+            console.error('[REPAIR] Failed:', err);
+             showGeneratingLoader(1, 1, 'Repair Failed');
+             
+             // RESTORE VIDEO IF FAILED
+             const oldSrc = `file://${movie.videoPath}?t=${Date.now()}`;
+             video.src = oldSrc;
+             video.currentTime = savedTime; // Try to restore pos
+             
+             // Hide loader logic
+             setTimeout(() => {
+                const loader = document.getElementById('generationLoader');
+                if (loader) loader.classList.remove('visible');
+            }, 2000);
+        }
+    });
+}

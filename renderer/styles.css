@@ -1332,3 +1332,182 @@ video {
   position: relative;
   z-index: 1;
 }
+
+/* =====================================================
+   SETTINGS CONTEXT MENU
+   ===================================================== */
+.context-menu {
+    position: absolute;
+    bottom: 50px; /* Above button */
+    right: -10px;
+    width: 220px;
+    background: rgba(18, 18, 18, 0.98);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 6px;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 200;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    transform-origin: bottom right;
+}
+
+.context-menu.visible {
+    display: flex;
+    animation: fadeIn 0.2s ease;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    color: #e0e0e0;
+    font-size: 13px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s;
+    user-select: none;
+}
+
+.menu-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.menu-item-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.menu-item.active {
+    background: rgba(104, 41, 221, 0.15); /* Accent tint */
+    color: var(--accent);
+}
+
+/* SUBMENU (Playback Speed) */
+.submenu {
+    position: absolute;
+    bottom: 0;
+    right: 225px; /* Push to left of parent menu */
+    width: 140px;
+    background: rgba(18, 18, 18, 0.98);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 4px;
+    
+    flex-direction: column;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    
+    /* Animation / Hover Delay Logic */
+    visibility: hidden;
+    opacity: 0;
+    transform: translateX(10px);
+    pointer-events: none;
+    
+    /* EXIT TRANSITION: Wait 2s before hiding visibility */
+    transition: 
+        opacity 0.2s ease,
+        transform 0.2s ease,
+        visibility 0s linear 2s; /* Delay visibility toggle on exit */
+}
+
+.menu-item.has-submenu:hover .submenu,
+.submenu:hover { /* Keep showing if hovering submenu itself */
+    display: flex; /* Ensure flex layout is kept (though display isn't toggled anymore, flex-direction is set above) */
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+    
+    /* ENTER TRANSITION: Instant */
+    transition-delay: 0s;
+}
+
+/* MODAL STYLES */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-content {
+    background: rgba(25, 25, 25, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    border-radius: 16px;
+    padding: 24px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    transform: scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-overlay.visible .modal-content {
+    transform: scale(1);
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #fff;
+}
+
+.modal-desc {
+    font-size: 14px;
+    color: #a0a0a0;
+    line-height: 1.5;
+    margin-bottom: 24px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.modal-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.modal-btn.cancel {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ccc;
+}
+.modal-btn.cancel:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+.modal-btn.confirm {
+    background: var(--accent);
+    color: #fff;
+}
+.modal-btn.confirm:hover {
+    background: #7c4ce4; /* slightly lighter accent */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(104, 41, 221, 0.4);
+}
