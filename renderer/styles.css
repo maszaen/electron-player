@@ -1338,25 +1338,37 @@ video {
    ===================================================== */
 .context-menu {
     position: absolute;
-    bottom: 50px; /* Above button */
-    right: -10px;
+    bottom: 60px; /* Above button */
+    right: -50px;
     width: 220px;
     background: rgba(18, 18, 18, 0.98);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     padding: 6px;
-    display: none;
+    
+    /* Layout & Animation */
+    display: flex; /* Always flex, hide via visibility */
     flex-direction: column;
     gap: 2px;
     z-index: 200;
     box-shadow: 0 5px 20px rgba(0,0,0,0.5);
     transform-origin: bottom right;
+    
+    /* Hidden State */
+    visibility: hidden;
+    opacity: 0;
+    transform: scale(0.95);
+    
+    /* Smooth Transition for In/Out */
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.2s;
 }
 
 .context-menu.visible {
-    display: flex;
-    animation: fadeIn 0.2s ease;
+    visibility: visible;
+    opacity: 1;
+    transform: scale(1);
+    transition-duration: 0.2s;
 }
 
 .menu-item {
@@ -1392,7 +1404,7 @@ video {
 .submenu {
     position: absolute;
     bottom: 0;
-    right: 225px; /* Push to left of parent menu */
+    right: 225px;
     width: 140px;
     background: rgba(18, 18, 18, 0.98);
     backdrop-filter: blur(12px);
@@ -1400,6 +1412,7 @@ video {
     border-radius: 8px;
     padding: 4px;
     
+    display: flex; /* Always layout as flex */
     flex-direction: column;
     box-shadow: 0 5px 20px rgba(0,0,0,0.5);
     
@@ -1407,25 +1420,19 @@ video {
     visibility: hidden;
     opacity: 0;
     transform: translateX(10px);
-    pointer-events: none;
     
-    /* EXIT TRANSITION: Wait 2s before hiding visibility */
-    transition: 
-        opacity 0.2s ease,
-        transform 0.2s ease,
-        visibility 0s linear 2s; /* Delay visibility toggle on exit */
+    /* EXIT TRANSITION: Wait 2s before doing anything, then fade out */
+    transition: all 0.3s ease 0.5s;
 }
 
 .menu-item.has-submenu:hover .submenu,
-.submenu:hover { /* Keep showing if hovering submenu itself */
-    display: flex; /* Ensure flex layout is kept (though display isn't toggled anymore, flex-direction is set above) */
+.submenu:hover {
     visibility: visible;
     opacity: 1;
     transform: translateX(0);
-    pointer-events: auto;
     
-    /* ENTER TRANSITION: Instant */
-    transition-delay: 0s;
+    /* ENTER TRANSITION: Instant (Override delay to 0s) */
+    transition: all 0.3s ease 0s;
 }
 
 /* MODAL STYLES */
