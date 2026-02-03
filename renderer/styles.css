@@ -145,6 +145,13 @@ body {
     rotate: 90deg;
 }
 
+/* Replay Icon: Force Stroke, No Fill */
+.icon-btn.is-replay svg {
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 2 !important;
+}
+
 .close-btn svg {
     width: 17px;
     height: 17px;
@@ -880,7 +887,7 @@ video {
     left: 0;
     right: 0;
     padding: 20px 20px 16px 20px; /* Extra bottom padding for slider space? No, slider is border */
-    background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 40%, transparent 100%);
+    background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 20%, transparent 40%);
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -893,7 +900,7 @@ video {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: var(--accent);
+    color: #d682ff;
     margin-bottom: 6px;
     font-weight: 700;
     text-shadow: 0 2px 4px rgba(0,0,0,0.8);

@@ -523,6 +523,7 @@ video.addEventListener('pause', () => {
 function updatePlayIcon(playing) {
     isPlaying = playing;
     const icon = document.getElementById('playIcon');
+    playBtn.classList.remove('is-replay'); // Reset Replay Style
     if (playing) {
         icon.setAttribute('data-lucide', 'pause');
     } else {
@@ -717,7 +718,11 @@ video.addEventListener('ended', () => {
         // AUTOPLAY OFF: Fade out -> Show Static Overlay -> Open Sidebar -> Wait 2s -> Exit Fullscreen
         video.classList.add('fade-out-video');
         updatePlayIcon(false);
-        changePlayIconToReplay(); // Show rotate-ccw
+        // Show Replay Icon & Style
+        const pIcon = document.getElementById('playIcon');
+        pIcon.setAttribute('data-lucide', 'rotate-ccw');
+        lucide.createIcons();
+        playBtn.classList.add('is-replay');
         
         // Show Overlay (Static)
         if (nextMovie) {
