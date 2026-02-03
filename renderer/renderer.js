@@ -1029,43 +1029,9 @@ function showSkipIndicator(direction) {
     else rightFadeOutTimeout = fadeOutTimeout;
 }
 
-// =====================================================
-// TEST BUTTON LOGIC
-// =====================================================
-const testBtn = document.getElementById('testToastBtn');
-if (testBtn) {
-    testBtn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevent bubbles
-        
-        console.log('[TEST] Toast simulation started');
-        let progress = 0;
-        const total = 5;
-        
-        // Show initial state
-        showGeneratingLoader(0, total, 'Preparing test...');
-        
-        const interval = setInterval(() => {
-            progress++;
-            showGeneratingLoader(progress, total, `Processing item ${progress}...`);
-            
-            if (progress >= total) {
-                console.log('[TEST] finished');
-                clearInterval(interval);
-                
-                // Trigger finish animation
-                setTimeout(() => {
-                    const loader = document.getElementById('generationLoader');
-                    if (loader) {
-                        loader.classList.add('hiding');
-                        loader.classList.remove('visible');
-                        setTimeout(() => loader.classList.remove('hiding'), 400);
-                    }
-                }, 1000);
-            }
-        }, 800); // 800ms
-    });
-}
 
+
+// Keyboard listener
 // Keyboard listener
 document.addEventListener('keydown', (e) => {
     // Only if video is loaded
@@ -1077,6 +1043,20 @@ document.addEventListener('keydown', (e) => {
     } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         showSkipIndicator('right');
+    }
+});
+
+// =====================================================
+// LOGO ENTRANCE ANIMATION
+// =====================================================
+window.addEventListener('load', () => {
+    // Target the parent placeholder
+    const placeholder = document.querySelector('.video-placeholder');
+    if (placeholder) {
+        setTimeout(() => {
+            // Trigger sequenced animation via CSS
+            placeholder.classList.add('animate-in');
+        }, 500); // 0.5s delay before start
     }
 });
 
