@@ -65,36 +65,8 @@ let isGenerating = false;
 
 async function loadLibrary() {
     const result = await window.api.scanDefault();
-    if (!result) return;
-    
-    const { movies, needsGeneration } = result;
-    
-    if (needsGeneration && needsGeneration.length > 0) {
-        // Show generating loader
-        showGeneratingLoader(0, needsGeneration.length);
-        isGenerating = true;
-        
-        // Generate previews
-        const updatedMovies = await window.api.generatePreviews(needsGeneration);
-        
-        // Merge updated preview paths
-        for (const updated of updatedMovies) {
-            const original = movies.find(m => m.videoPath === updated.videoPath);
-            if (original) {
-                original.previewPath = updated.previewPath;
-            }
-        }
-        
-        isGenerating = false;
-    }
-    
-    renderMovies(movies);
+    await handleScanResult(result);
 }
-
-// Listen for preview progress updates
-window.api.onPreviewProgress((progress) => {
-    showGeneratingLoader(progress.current, progress.total, progress.name);
-});
 
 function showGeneratingLoader(current, total, name = '') {
     const percent = total > 0 ? (current / total) * 100 : 0;
@@ -112,29 +84,85 @@ function showGeneratingLoader(current, total, name = '') {
 
 loadLibrary();
 
-document.getElementById('scanBtn').addEventListener('click', async () => {
-    const result = await window.api.selectFolder();
+// REWRITE HANDLER TO MATCH NEW MAIN LOGIC
+async function handleScanResult(result) {
     if (!result) return;
     
     const { movies, needsGeneration } = result;
+    renderMovies(movies);
     
-    if (needsGeneration && needsGeneration.length > 0) {
-        showGeneratingLoader(0, needsGeneration.length);
+    const { covers, previews } = needsGeneration;
+    const hasCovers = covers.length > 0;
+    const hasPreviews = previews.length > 0;
+    
+    if (hasCovers || hasPreviews) {
         isGenerating = true;
+        const totalOps = covers.length + previews.length;
+        showGeneratingLoader(0, totalOps, 'Initializing generation...');
         
-        const updatedMovies = await window.api.generatePreviews(needsGeneration);
+        // Combine all movies needing attention
+        const allNeedingMap = new Map();
+        covers.forEach(m => allNeedingMap.set(m.videoPath, m));
+        previews.forEach(m => allNeedingMap.set(m.videoPath, m));
+        const moviesToProcess = Array.from(allNeedingMap.values());
         
-        for (const updated of updatedMovies) {
-            const original = movies.find(m => m.videoPath === updated.videoPath);
-            if (original) {
-                original.previewPath = updated.previewPath;
+        const types = [];
+        if (hasCovers) types.push('cover');
+        if (hasPreviews) types.push('preview');
+        
+        // Trigger generation
+        await window.api.invoke('generate-assets', { 
+            movies: moviesToProcess, 
+            types: types 
+        });
+    }
+}
+
+document.getElementById('scanBtn').addEventListener('click', async () => {
+    const result = await window.api.selectFolder();
+    await handleScanResult(result);
+});
+
+// Update progress listener to handle types
+window.api.onGenerationProgress((progress) => {
+    // progress: { current, total, type, movie }
+    
+    // Update local movie data
+    const movieIndex = currentMovies.findIndex(m => m.videoPath === progress.movie.videoPath);
+    if (movieIndex !== -1) {
+        const original = currentMovies[movieIndex];
+        if (progress.type === 'cover') {
+            original.coverPath = progress.movie.coverPath;
+            // Update DOM if visible
+            const el = movieList.children[movieIndex];
+            if (el) {
+                const coverEl = el.querySelector('.movie-cover');
+                if (coverEl.tagName === 'DIV') {
+                    // Replace div with img
+                    const img = document.createElement('img');
+                    img.className = 'movie-cover movie-cover-img';
+                    img.src = progress.movie.coverPath;
+                    img.alt = '';
+                    el.replaceChild(img, coverEl);
+                } else {
+                    coverEl.src = progress.movie.coverPath;
+                }
             }
+        } else if (progress.type === 'preview') {
+            original.previewPath = progress.movie.previewPath;
         }
-        
-        isGenerating = false;
     }
     
-    renderMovies(movies);
+    const label = progress.type === 'cover' ? `Generating Cover: ${progress.movie.name}` : `Generating Preview: ${progress.movie.name}`;
+    showGeneratingLoader(progress.current, progress.total, label);
+    
+    if (progress.current >= progress.total) {
+        isGenerating = false;
+        setTimeout(() => {
+            const loader = document.getElementById('generationLoader');
+            if (loader) loader.classList.remove('visible');
+        }, 1000);
+    }
 });
 
 function renderMovies(movies) {

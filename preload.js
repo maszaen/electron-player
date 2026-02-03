@@ -15,8 +15,11 @@ contextBridge.exposeInMainWorld('api', {
     selectFolder: () => ipcRenderer.invoke('select-folder'),
     
     // Preview generation
-    generatePreviews: (movies) => ipcRenderer.invoke('generate-previews', movies),
-    onPreviewProgress: (callback) => {
-        ipcRenderer.on('preview-progress', (event, progress) => callback(progress));
+    // Generic Invoke
+    invoke: (channel, data) => ipcRenderer.invoke(channel, data),
+    
+    // Asset Generation
+    onGenerationProgress: (callback) => {
+        ipcRenderer.on('generation-progress', (event, progress) => callback(progress));
     },
 });

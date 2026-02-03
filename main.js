@@ -151,70 +151,305 @@ ipcMain.handle('select-folder', async () => {
 // ASSET PATHS
 // =====================================================
 
-function getPreviewPath(videoPath) {
-    const dir = path.dirname(videoPath);
-    const previewDir = path.join(dir, PREVIEW_FOLDER);
-    const baseName = path.basename(videoPath, path.extname(videoPath));
-    return path.join(previewDir, `${baseName}_preview.mp4`);
+// =====================================================
+// SMART SCANNING & ASSET GENERATION
+// =====================================================
+
+// Helper to sanitize folder names
+function sanitizeName(name) {
+    return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 }
 
-// =====================================================
-// FILE SCANNING LOGIC
-// =====================================================
+function getThumbnailDir(rootPath, videoPath, mode) {
+    const relativeDir = path.relative(rootPath, path.dirname(videoPath));
+    const videoName = path.basename(videoPath, path.extname(videoPath));
+    const baseDir = path.join(rootPath, PREVIEW_FOLDER);
+    
+    // Create consistent, conflict-free path
+    if (mode === 'folder-based') {
+        // Folder mode: Thumbnails in PREVIEW/RelativePath/
+        return path.join(baseDir, relativeDir);
+    } else {
+        // File mode: Thumbnails in PREVIEW/RelativePath/_file_VideoName/
+        // Use a special prefix folder for loose files based on their name to avoid conflicts
+        return path.join(baseDir, relativeDir, `_m_${sanitizeName(videoName)}`);
+    }
+}
 
-function checkPreviewsNeeded(movies) {
-    const needed = [];
-    for (const movie of movies) {
-        const previewPath = getPreviewPath(movie.videoPath);
-        if (!fs.existsSync(previewPath)) {
-            needed.push(movie);
-        } else {
-            movie.previewPath = previewPath;
+// Check scanning mode for a folder
+function detectFolderMode(folderPath) {
+    try {
+        const items = fs.readdirSync(folderPath, { withFileTypes: true });
+        const videos = items.filter(i => i.isFile() && isVideoFile(i.name));
+        
+        // Strict Folder Mode: Only 1 video file in the folder
+        if (videos.length === 1) {
+            return { mode: 'folder-based', videos }; 
+        }
+        
+        // File Mode: Multiple videos or mixed content
+        return { mode: 'file-based', videos };
+    } catch {
+        return { mode: 'file-based', videos: [] };
+    }
+}
+
+// Find existing cover in the same directory (Prioritize exact match -> random image)
+function findExistingCover(videoPath) {
+    const dir = path.dirname(videoPath);
+    const videoName = path.basename(videoPath, path.extname(videoPath));
+    
+    try {
+        const files = fs.readdirSync(dir);
+        const images = files.filter(f => isImageFile(f));
+        
+        if (images.length === 0) return null;
+        
+        // 1. Exact name match (video.mp4 -> video.jpg)
+        const exactMatch = images.find(img => 
+            path.basename(img, path.extname(img)).toLowerCase() === videoName.toLowerCase()
+        );
+        if (exactMatch) return path.join(dir, exactMatch);
+        
+        // 2. Common names (cover.jpg, poster.png, etc)
+        const commonNames = ['cover', 'poster', 'folder', 'thumb'];
+        const commonMatch = images.find(img => 
+            commonNames.some(name => img.toLowerCase().includes(name))
+        );
+        if (commonMatch) return path.join(dir, commonMatch);
+
+        // 3. Fallback: First image found (Only relevant for Folder-Based mode)
+        // But we handle this in the scanner to be safer
+        return path.join(dir, images[0]);
+    } catch {
+        return null;
+    }
+}
+
+// Core Recursive Scanner
+function scanRecursive(currentPath, rootPath, depth, maxDepth, movies) {
+    if (depth > maxDepth) return;
+    if (!fs.existsSync(currentPath)) return;
+
+    // Skip system folders
+    const dirName = path.basename(currentPath);
+    if (dirName === PREVIEW_FOLDER || dirName === 'node_modules' || dirName.startsWith('.')) return;
+
+    const { mode, videos } = detectFolderMode(currentPath);
+    
+    // Process Videos in Current Folder
+    for (const video of videos) {
+        const videoPath = path.join(currentPath, video.name);
+        const videoName = path.basename(videoPath, path.extname(videoPath));
+        
+        // Determination of Scan Mode for THIS video
+        // If the folder was deemed "Folder Based" (1 video), use that mode. 
+        // Otherwise treat as file-based (loose file).
+        const currentMode = (mode === 'folder-based') ? 'folder-based' : 'file-based';
+        
+        // Display Name: Folder Name (if folder-based) OR File Name
+        const displayName = (currentMode === 'folder-based') ? dirName : videoName;
+        
+        // Thumbnail Directory
+        const thumbnailDir = getThumbnailDir(rootPath, videoPath, currentMode);
+        
+        // Cover Logic:
+        // 1. Check existing image file near video
+        let coverPath = findExistingCover(videoPath);
+        
+        // 2. If no existing cover, define path for text/generated cover
+        const generatedCoverPath = path.join(thumbnailDir, 'cover.jpg');
+        
+        // Preview Logic:
+        // 1. Define path for generated preview
+        const generatedPreviewPath = path.join(thumbnailDir, 'preview.mp4');
+
+        movies.push({
+            name: displayName,
+            videoPath: videoPath,
+            size: fs.statSync(videoPath).size,
+            mode: currentMode,
+            
+            // Paths for Assets
+            coverPath: coverPath, // null if not found (will trigger generation)
+            generatedCoverPath: generatedCoverPath,
+            previewPath: fs.existsSync(generatedPreviewPath) ? generatedPreviewPath : null,
+            generatedPreviewPath: generatedPreviewPath
+        });
+    }
+
+    // Recurse into subfolders
+    const items = fs.readdirSync(currentPath, { withFileTypes: true });
+    for (const item of items) {
+        if (item.isDirectory() && !item.name.startsWith('.')) {
+            scanRecursive(path.join(currentPath, item.name), rootPath, depth + 1, maxDepth, movies);
         }
     }
-    return needed;
 }
 
-ipcMain.handle('generate-previews', async (event, movies) => {
-    const total = movies.length;
-    let completed = 0;
+// Entry Point for Scanning
+ipcMain.handle('scan-directory', async () => {
+    try {
+        let rootPath;
+        if (isDev) {
+            rootPath = path.join(process.cwd(), '..');
+        } else {
+            const config = loadConfig();
+            if (!config.libraryPath || !fs.existsSync(config.libraryPath)) {
+                return { movies: [], needsAssetGeneration: { covers: [], previews: [] } };
+            }
+            rootPath = config.libraryPath;
+        }
+
+        const movies = [];
+        scanRecursive(rootPath, rootPath, 0, 3, movies);
+        
+        // Sort alphabetically by name
+        movies.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+        // Check what needs generation
+        const needsGeneration = checkAssetsNeeded(movies);
+        
+        return { movies, needsGeneration };
+    } catch (error) {
+        console.error("Scan error:", error);
+        return { movies: [], needsGeneration: { covers: [], previews: [] } };
+    }
+});
+
+// Reuse logic for Select Folder
+ipcMain.handle('select-folder', async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    if (!result.canceled && result.filePaths.length > 0) {
+        const rootPath = result.filePaths[0];
+        
+        if (!isDev) {
+            const config = loadConfig();
+            config.libraryPath = rootPath;
+            saveConfig(config);
+        }
+        
+        const movies = [];
+        scanRecursive(rootPath, rootPath, 0, 3, movies);
+        movies.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        
+        const needsGeneration = checkAssetsNeeded(movies);
+        return { movies, needsGeneration };
+    }
+    return null;
+});
+
+// =====================================================
+// ASSET GENERATION PIPELINE
+// =====================================================
+
+function checkAssetsNeeded(movies) {
+    const covers = [];
+    const previews = [];
     
     for (const movie of movies) {
-        try {
-            await generatePreviewVideo(movie.videoPath);
-            movie.previewPath = getPreviewPath(movie.videoPath);
-            completed++;
+        // Check Cover
+        if (!movie.coverPath) {
+            // Check if we already generated one in a previous session
+            if (fs.existsSync(movie.generatedCoverPath)) {
+                movie.coverPath = movie.generatedCoverPath;
+            } else {
+                covers.push(movie);
+            }
+        }
+        
+        // Check Preview
+        // (previewPath is already set if exists in scanRecursive, but double check)
+        if (!movie.previewPath && !fs.existsSync(movie.generatedPreviewPath)) {
+            // Check legacy path just in case? No, stick to new strict structure
+            previews.push(movie);
+        }
+    }
+    return { covers, previews };
+}
+
+// Generate Single Frame Cover at 30%
+function generateCoverImage(videoPath, outputPath) {
+    return new Promise((resolve, reject) => {
+        const dir = path.dirname(outputPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        
+        ffmpeg.ffprobe(videoPath, (err, metadata) => {
+            if (err) return reject(err);
             
-            // Send progress update
-            mainWindow.webContents.send('preview-progress', {
-                current: completed,
-                total: total,
-                name: movie.name
-            });
-        } catch (err) {
-            console.error(`Failed to generate preview for ${movie.name}:`, err);
-            completed++;
-            mainWindow.webContents.send('preview-progress', {
-                current: completed,
-                total: total,
-                name: movie.name,
-                error: true
-            });
+            const duration = metadata.format.duration || 10;
+            const timestamp = duration * 0.3; // 30% mark
+            
+            ffmpeg(videoPath)
+                .screenshots({
+                    timestamps: [timestamp],
+                    filename: path.basename(outputPath),
+                    folder: dir,
+                    size: '480x?', // 480px width, auto height
+                })
+                .on('end', () => resolve(outputPath))
+                .on('error', (err) => reject(err));
+        });
+    });
+}
+
+// IPC: Process Generation Queue
+ipcMain.handle('generate-assets', async (event, { movies, types }) => {
+    // types = ['cover', 'preview']
+    const total = (types.includes('cover') ? movies.length : 0) + (types.includes('preview') ? movies.length : 0);
+    let completed = 0;
+    
+    // 1. Generate Covers First (Faster, immediate visual feedback)
+    if (types.includes('cover')) {
+        for (const movie of movies) {
+            if (movie.coverPath) continue; // Skip if already has cover (e.g. from file)
+            
+            try {
+                await generateCoverImage(movie.videoPath, movie.generatedCoverPath);
+                movie.coverPath = movie.generatedCoverPath; // Update object
+                completed++;
+                
+                mainWindow.webContents.send('generation-progress', {
+                    current: completed,
+                    total: total,
+                    type: 'cover',
+                    movie: movie
+                });
+            } catch (err) {
+                console.error(`Failed cover gen for ${movie.name}`, err);
+            }
+        }
+    }
+
+    // 2. Generate Video Previews (Slower)
+    if (types.includes('preview')) {
+        for (const movie of movies) {
+            if (movie.previewPath) continue; 
+            
+            try {
+                await generatePreviewVideo(movie.videoPath, movie.generatedPreviewPath);
+                movie.previewPath = movie.generatedPreviewPath; // Update object
+                completed++;
+                
+                mainWindow.webContents.send('generation-progress', {
+                    current: completed,
+                    total: total,
+                    type: 'preview',
+                    movie: movie
+                });
+            } catch (err) {
+                console.error(`Failed preview gen for ${movie.name}`, err);
+            }
         }
     }
     
     return movies;
 });
 
-// =====================================================
-// GENERATION FUNCTIONS
-// =====================================================
-
-function generatePreviewVideo(videoPath) {
+// Updated Preview Generator (Uses output path directly)
+function generatePreviewVideo(videoPath, outputPath) {
     return new Promise((resolve, reject) => {
-        const outputPath = getPreviewPath(videoPath);
         const previewDir = path.dirname(outputPath);
-        
         if (!fs.existsSync(previewDir)) fs.mkdirSync(previewDir, { recursive: true });
         
         ffmpeg.ffprobe(videoPath, (err, metadata) => {
@@ -228,7 +463,7 @@ function generatePreviewVideo(videoPath) {
             let clipPromises = positions.map((pos, i) => {
                 return new Promise((res, rej) => {
                     const startTime = duration * pos;
-                    const tempFile = path.join(previewDir, `temp_${i}_${path.basename(outputPath)}`);
+                    const tempFile = path.join(previewDir, `temp_${i}_${Date.now()}.mp4`);
                     tempFiles.push(tempFile);
                     
                     ffmpeg(videoPath)
@@ -239,7 +474,7 @@ function generatePreviewVideo(videoPath) {
                             '-c:v', 'libx264',
                             '-preset', 'ultrafast',
                             '-crf', '28',
-                            '-an'
+                            '-an' // Mute audio
                         ])
                         .output(tempFile)
                         .on('end', () => res(tempFile))
@@ -250,7 +485,7 @@ function generatePreviewVideo(videoPath) {
             
             Promise.all(clipPromises)
                 .then(() => {
-                    const listFile = path.join(previewDir, `list_${path.basename(outputPath)}.txt`);
+                    const listFile = path.join(previewDir, `list_${Date.now()}.txt`);
                     const listContent = tempFiles.map(f => `file '${f.replace(/\\/g, '/')}'`).join('\n');
                     fs.writeFileSync(listFile, listContent);
                     
@@ -265,6 +500,7 @@ function generatePreviewVideo(videoPath) {
                             resolve(outputPath);
                         })
                         .on('error', (err) => {
+                            // Cleanup on error
                             tempFiles.forEach(f => { try { fs.unlinkSync(f); } catch (e) {} });
                             try { fs.unlinkSync(listFile); } catch (e) {}
                             reject(err);
@@ -276,87 +512,7 @@ function generatePreviewVideo(videoPath) {
     });
 }
 
-// =====================================================
-// DEV MODE SCANNING - Depth 1
-// =====================================================
-function scanMoviesDev(dirPath) {
-    const movies = [];
-    if (!fs.existsSync(dirPath)) return [];
-
-    const items = fs.readdirSync(dirPath, { withFileTypes: true });
-    
-    for (const item of items) {
-        if (item.isDirectory() && item.name !== 'electron-player' && item.name !== 'node_modules' && item.name !== PREVIEW_FOLDER) {
-            const folderPath = path.join(dirPath, item.name);
-            
-            const files = fs.readdirSync(folderPath);
-            const videoFile = files.find(f => isVideoFile(f));
-            const coverFile = files.find(f => isImageFile(f));
-
-            if (videoFile) {
-                const videoPath = path.join(folderPath, videoFile);
-                const previewPath = getPreviewPath(videoPath);
-                
-                movies.push({
-                    name: item.name,
-                    videoPath: videoPath,
-                    coverPath: coverFile ? path.join(folderPath, coverFile) : null,
-                    previewPath: fs.existsSync(previewPath) ? previewPath : null,
-                    size: fs.statSync(videoPath).size
-                });
-            }
-        }
-    }
-    return movies;
-}
-
-// =====================================================
-// PRODUCTION MODE SCANNING - Recursive, Max Depth 3
-// =====================================================
-function scanMoviesProduction(dirPath, currentDepth, maxDepth) {
-    const movies = [];
-    if (!fs.existsSync(dirPath) || currentDepth > maxDepth) return [];
-
-    try {
-        const items = fs.readdirSync(dirPath, { withFileTypes: true });
-        
-        for (const item of items) {
-            const itemPath = path.join(dirPath, item.name);
-            
-            if (item.isDirectory() && item.name !== 'node_modules' && !item.name.startsWith('.') && item.name !== PREVIEW_FOLDER) {
-                const files = fs.readdirSync(itemPath);
-                const videoFile = files.find(f => isVideoFile(f));
-                const coverFile = files.find(f => isImageFile(f));
-
-                if (videoFile) {
-                    const videoPath = path.join(itemPath, videoFile);
-                    const previewPath = getPreviewPath(videoPath);
-                    
-                    movies.push({
-                        name: item.name,
-                        videoPath: videoPath,
-                        coverPath: coverFile ? path.join(itemPath, coverFile) : null,
-                        previewPath: fs.existsSync(previewPath) ? previewPath : null,
-                        size: fs.statSync(videoPath).size
-                    });
-                }
-                
-                if (currentDepth < maxDepth) {
-                    const subMovies = scanMoviesProduction(itemPath, currentDepth + 1, maxDepth);
-                    movies.push(...subMovies);
-                }
-            }
-        }
-    } catch (e) {
-        console.error('Scan error at', dirPath, e);
-    }
-    
-    return movies;
-}
-
-// =====================================================
-// HELPERS
-// =====================================================
+// Helpers
 function isVideoFile(filename) {
     const ext = filename.toLowerCase();
     return ext.endsWith('.mp4') || ext.endsWith('.webm') || ext.endsWith('.mkv') || ext.endsWith('.avi') || ext.endsWith('.mov');
