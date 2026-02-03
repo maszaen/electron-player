@@ -1421,8 +1421,8 @@ video {
     opacity: 0;
     transform: translateX(10px);
     
-    /* EXIT TRANSITION: Wait 2s before doing anything, then fade out */
-    transition: all 0.3s ease 0.5s;
+    /* EXIT TRANSITION: Short delay to allow mouse bridge, but not enough to cause overlap */
+    transition: all 0.2s ease 0.1s;
 }
 
 .menu-item.has-submenu:hover .submenu,

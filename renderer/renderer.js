@@ -1138,21 +1138,40 @@ document.querySelectorAll('.speed-opt').forEach(opt => {
 });
 
 // Repair Video Logic
-const menuRepair = document.getElementById('menuRepair');
-if (menuRepair) {
-    menuRepair.addEventListener('click', () => {
-        settingsMenu.classList.remove('visible');
-        
-        if (currentMovieIndex === -1) {
-            // Show toast warning (using new system)
-            showToast("Please select a video to repair first", 'warning');
-            return;
-        }
-        
-        // Show Modal
-        repairModal.classList.add('visible');
-    });
+let currentRepairMode = 'remerge'; // 'remerge' | 'reencode'
+
+const menuRemerge = document.getElementById('menuRemerge');
+const menuReEncode = document.getElementById('menuReEncode');
+
+function openRepairModal(mode) {
+    settingsMenu.classList.remove('visible');
+    
+    if (currentMovieIndex === -1) {
+        showToast("Please select a video to repair first", 'warning');
+        return;
+    }
+    
+    currentRepairMode = mode;
+    
+    const titleEl = repairModal.querySelector('.modal-title');
+    const descEl = repairModal.querySelector('.modal-desc');
+    const confirmBtn = document.getElementById('confirmRepair');
+    
+    if (mode === 'remerge') {
+        titleEl.textContent = 'Remerge Video (Fast)';
+        descEl.innerHTML = 'Fixes seeking lag by optimizing index structure (moov atom).<br>Lossless, very fast (few seconds).';
+        confirmBtn.textContent = 'Start Remerge';
+    } else {
+        titleEl.textContent = 'Re-encode Video (Deep)';
+        descEl.innerHTML = 'Fixes severe lag by restructuring keyframes (GOP).<br><b>Note: Takes longer (1-3 mins)</b> but guarantees smooth seeking.';
+        confirmBtn.textContent = 'Start Re-encode';
+    }
+    
+    repairModal.classList.add('visible');
 }
+
+if (menuRemerge) menuRemerge.addEventListener('click', () => openRepairModal('remerge'));
+if (menuReEncode) menuReEncode.addEventListener('click', () => openRepairModal('reencode'));
 
 if (cancelRepairBtn) {
     cancelRepairBtn.addEventListener('click', () => {
@@ -1170,19 +1189,21 @@ if (confirmRepairBtn) {
         // Capture State
         let wasPlaying = !video.paused;
         let savedTime = video.currentTime;
-        console.log(`[REPAIR] Snapshot: Time=${savedTime}, Playing=${wasPlaying}`);
+        console.log(`[REPAIR] Snapshot: Time=${savedTime}, Playing=${wasPlaying}, Mode=${currentRepairMode}`);
         
         // UNLOAD VIDEO TO RELEASE LOCK
         video.pause();
         video.removeAttribute('src');
         video.load();
         
-        // Show Generating Loader (still appropriate for heavy process)
-        showGeneratingLoader(0, 1, `Repairing: ${movie.name}`);
+        // Show Generating Loader
+        const actionName = currentRepairMode === 'remerge' ? 'Remerging' : 'Re-encoding';
+        showGeneratingLoader(0, 1, `${actionName}: ${movie.name}`);
         
         try {
-            // Invoke Repair
-            const newPath = await window.api.invoke('repair-video', movie.videoPath);
+            // Invoke Repair based on mode
+            const channel = currentRepairMode === 'remerge' ? 'repair-video' : 'reencode-video';
+            const newPath = await window.api.invoke(channel, movie.videoPath);
             
             // On Success
             console.log(`[REPAIR] Completed. New path: ${newPath}`);
@@ -1200,7 +1221,7 @@ if (confirmRepairBtn) {
             }
             
             // Show Success Toast
-            showToast('Repair Complete', 'success');
+            showToast(`${actionName} Complete`, 'success');
             
             // Reload Video Source
             const newSrc = `file://${newPath}?t=${Date.now()}`;
@@ -1232,7 +1253,7 @@ if (confirmRepairBtn) {
              if (loader) loader.classList.remove('visible');
 
              // Show Error Toast
-             showToast('Repair Failed: ' + (err.message || 'Unknown error'), 'error');
+             showToast(`${actionName} Failed: ` + (err.message || 'Unknown error'), 'error');
              
              // RESTORE VIDEO IF FAILED
              const oldSrc = `file://${movie.videoPath}?t=${Date.now()}`;

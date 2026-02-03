@@ -193,11 +193,22 @@
                             
                             <!-- Settings Menu -->
                             <div class="context-menu" id="settingsMenu">
-                                <div class="menu-item" id="menuRepair">
-                                  <div class="menu-item-content" id="menuRepair">
-                                    <i data-lucide="wrench" style="width: 14px; height: 14px;"></i> 
-                                    <span>Repair Video</span>
-                                  </div>
+                                <div class="menu-item has-submenu" id="menuRepairParent">
+                                    <div class="menu-item-content">
+                                        <i data-lucide="wrench" style="width: 14px; height: 14px;"></i>
+                                        <span>Repair Video</span>
+                                    </div>
+                                    <i data-lucide="chevron-right" class="submenu-arrow" style="width: 14px; height: 14px;"></i>
+                                    
+                                    <!-- Submenu -->
+                                    <div class="submenu" style="bottom: 40px;"> <!-- Slight adjustment for position -->
+                                        <div class="menu-item" id="menuRemerge">
+                                            <span>Re-merge (Fast)</span>
+                                        </div>
+                                        <div class="menu-item" id="menuReEncode">
+                                            <span>Re-encode (Deep)</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="menu-item has-submenu" id="menuSpeed">
                                     <div class="menu-item-content">
