@@ -63,6 +63,31 @@
                 </div>
             </div>
 
+            <!-- Next Video Overlay (Autoplay) -->
+            <div class="next-video-overlay" id="nextVideoOverlay">
+                <!-- Card Container -->
+                <div class="next-card">
+                    <div class="next-cover-container">
+                         <img id="nextCoverImg" class="next-cover-img" src="" style="display: none;">
+                         <div class="next-cover-fallback" id="nextCoverFallback">
+                             <i data-lucide="video" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+                         </div>
+                         
+                         <!-- Metadata Overlay inside Cover -->
+                         <div class="next-metadata">
+                            <div class="next-label">Up Next</div>
+                            <div class="next-title" id="nextTitle">Movie Title</div>
+                         </div>
+                         
+                         <!-- Slider Bar at Bottom of Cover -->
+                         <div class="next-progress-bar"></div>
+                    </div>
+                </div>
+                
+                <!-- Timer Text Outside -->
+                <div class="next-timer-text" id="nextTimer">Playing next video in 5s</div>
+            </div>
+
             <!-- Empty State Placeholder -->
             <div class="video-placeholder" id="videoPlaceholder">
                 <div class="logo-inside">
@@ -208,7 +233,7 @@
                                     <i data-lucide="chevron-right" class="submenu-arrow" style="width: 14px; height: 14px;"></i>
                                     
                                     <!-- Submenu -->
-                                    <div class="submenu" style="bottom: 80px;"> <!-- Slight adjustment for position -->
+                                    <div class="submenu" style="bottom: 120px;"> <!-- Slight adjustment for position -->
                                         <div class="menu-item" id="menuRemerge">
                                             <span>Re-merge (Fast)</span>
                                         </div>
@@ -228,7 +253,7 @@
                                     <i data-lucide="chevron-right" class="submenu-arrow" style="width: 14px; height: 14px;"></i>
                                     
                                     <!-- Submenu -->
-                                    <div class="submenu" style="bottom: 40px;">
+                                    <div class="submenu" style="bottom: 80px;">
                                         <div class="menu-item speed-opt" data-speed="0.5">0.5x</div>
                                         <div class="menu-item speed-opt" data-speed="0.75">0.75x</div>
                                         <div class="menu-item speed-opt active" data-speed="1">Normal</div>
@@ -238,17 +263,29 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Resume Playback Menu -->
                                 <div class="menu-item has-submenu" id="menuResume">
                                     <div class="menu-item-content">
                                         <i data-lucide="history" style="width: 14px; height: 14px;"></i> 
                                         <span>Resume Playback</span>
                                     </div>
                                     <i data-lucide="chevron-right" class="submenu-arrow" style="width: 14px; height: 14px;"></i>
-                                     <div class="submenu" id="resumeSubmenu">
-                                        <div class="menu-item" data-resume="always"><span>Autoplay</span></div>
+                                     <div class="submenu" id="resumeSubmenu" style="bottom: 40px;">
+                                        <div class="menu-item" data-resume="always"><span>Auto Jump</span></div>
                                         <div class="menu-item" data-resume="ask"><span>Ask Everytime</span></div>
                                         <div class="menu-item" data-resume="never"><span>Never</span></div>
+                                    </div>
+                                </div>
+
+                                <!-- Autoplay Next Menu -->
+                                <div class="menu-item has-submenu" id="menuAutoplay">
+                                    <div class="menu-item-content">
+                                        <i data-lucide="play-circle" style="width: 14px; height: 14px;"></i> 
+                                        <span>Autoplay Next</span>
+                                    </div>
+                                    <i data-lucide="chevron-right" class="submenu-arrow" style="width: 14px; height: 14px;"></i>
+                                     <div class="submenu" id="autoplaySubmenu" style="bottom: 0;">
+                                        <div class="menu-item" data-autoplay="true"><span>Autoplay</span></div>
+                                        <div class="menu-item" data-autoplay="false"><span>Never</span></div>
                                     </div>
                                 </div>
                             </div>

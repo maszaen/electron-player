@@ -23,6 +23,10 @@ let isPlaying = false;
 let currentMovies = [];
 let currentMovieIndex = -1;
 let resumeMode = 'ask'; // 'always', 'never', 'ask'
+let autoplayNext = sessionStorage.getItem('autoplayNext') === 'true'; // Default false/never, persist on refresh
+let isVideoEnded = false;
+let nextVideoTimer = null;
+let nextVideoInterval = null;
 let lastSaveTime = 0;
 let hasSavedProgress = false;
 let previousVolume = 0.5; // Store volume before mute (default restore to 50%)
@@ -342,33 +346,58 @@ async function playMovie(index) {
     document.querySelector('.main-content').classList.add('has-video');
     sidebar.classList.add('collapsed');
 
+    // Reset Ended State & Overlay
+    isVideoEnded = false;
+    video.classList.remove('fade-out-video'); 
+    hideNextVideoOverlay(); // Clear overlay if needed
+
     // RESUME LOGIC
     try {
         const savedTime = await window.api.invoke('get-progress', movie.videoPath);
-        if (savedTime > 5) {
+        
+        // Remove fade out immediately on load
+        video.classList.remove('fade-out-video');
+
+        if (savedTime && savedTime > 5) {
              if (resumeMode === 'always') {
                  video.currentTime = savedTime;
-                 video.play();
-                 updatePlayIcon(true);
+                 startPlayback();
                  showToast(`Resumed at ${formatTime(savedTime)}`, 'info');
              } else if (resumeMode === 'never') {
                  video.currentTime = 0;
-                 video.play();
-                 updatePlayIcon(true);
+                 startPlayback();
              } else {
                  // Ask
-                 showResumeModal(savedTime);
-                 updatePlayIcon(false);
+                 if (typeof showResumeModal === 'function') {
+                    showResumeModal(savedTime);
+                    updatePlayIcon(false);
+                 } else {
+                    // Fallback if modal missing
+                    startPlayback();
+                 }
              }
         } else {
              video.currentTime = 0;
-             video.play();
-             updatePlayIcon(true);
+             startPlayback();
         }
     } catch (err) {
         console.error("Resume error:", err);
-        video.play();
-        updatePlayIcon(true);
+        // Fallback: Start from beginning
+        video.currentTime = 0;
+        startPlayback();
+    }
+}
+
+function startPlayback() {
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+        playPromise.then(_ => {
+            updatePlayIcon(true);
+        })
+        .catch(error => {
+            console.warn("Autoplay prevented or failed:", error);
+            updatePlayIcon(false);
+        });
     }
 }
 
@@ -380,7 +409,11 @@ titleDisplay.addEventListener('click', () => {
 });
 
 // Play/Pause - Button always works immediately
-playBtn.addEventListener('click', togglePlay);
+playBtn.addEventListener('click', (e) => {
+    // Blur to prevent Space double-trigger if button keeps focus
+    playBtn.blur();
+    togglePlay();
+});
 
 // Video click with delay to distinguish from double-click (fullscreen)
 video.addEventListener('click', (e) => {
@@ -412,8 +445,33 @@ function togglePlay() {
     // Only toggle if a video is loaded
     if (currentMovieIndex === -1 || !video.src) return;
 
-    if (video.paused) {
-        video.play();
+    if (isVideoEnded) {
+        // Reset state first
+        isVideoEnded = false;
+        video.classList.remove('fade-out-video');
+        hideNextVideoOverlay();
+
+        if (autoplayNext) {
+            if (currentMovieIndex < currentMovies.length - 1) {
+                // Play next
+                playMovie(currentMovieIndex + 1);
+                return;
+            }
+        }
+        
+        // Replay (if autoplayNext is false OR if last video)
+        video.currentTime = 0;
+        startPlayback();
+        return;
+    }
+
+    if (video.paused || video.ended) {
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.warn("Toggle play failed:", error);
+            });
+        }
     } else {
         video.pause();
     }
@@ -490,6 +548,14 @@ progressBar.addEventListener('click', (e) => {
     const rect = progressBar.getBoundingClientRect();
     const pos = (e.clientX - rect.left) / rect.width;
     video.currentTime = pos * video.duration;
+
+    // "user slide manual ... = play the video"
+    if (isVideoEnded) {
+        hideNextVideoOverlay();
+        video.play();
+        isVideoEnded = false;
+        video.classList.remove('fade-out-video');
+    }
 });
 
 progressBar.addEventListener('mouseenter', () => {
@@ -519,7 +585,7 @@ progressBar.addEventListener('mousemove', (e) => {
     
     // Calculate clamped position for tooltip
     // Tooltip width is approx 160px (canvas) + borders
-    const tooltipWidth = 162; 
+    const tooltipWidth = 220; 
     let tooltipLeft = mouseX - (tooltipWidth / 2);
     
     // Clamp to [0,  width - tooltipWidth]
@@ -587,13 +653,186 @@ video.addEventListener('timeupdate', () => {
 });
 
 video.addEventListener('ended', () => {
-    updatePlayIcon(false);
+    // Flag ended state
+    isVideoEnded = true;
+
     // Clear progress on finish
     if (currentMovieIndex !== -1) {
         const path = currentMovies[currentMovieIndex].videoPath;
         window.api.invoke('clear-progress', path);
     }
+    
+    // Determine Next Video
+    let nextMovie = null;
+    if (currentMovieIndex < currentMovies.length - 1) {
+        nextMovie = currentMovies[currentMovieIndex + 1];
+    }
+
+    if (autoplayNext && nextMovie) {
+        // AUTOPLAY ACTIVE: Fade out -> Show Overlay with Timer -> Play Next after 5s
+        video.classList.add('fade-out-video');
+        
+        // Show Overlay
+        showNextVideoOverlay(nextMovie, true); // true = autoplay
+
+        // Timer Logic
+        let count = 5;
+        // Start animation immediately
+        setTimeout(() => {
+             const box = document.querySelector('.next-card');
+             if (box) box.classList.add('animating');
+        }, 50);
+
+        nextVideoInterval = setInterval(() => {
+            count--;
+            updateNextTimerText(count);
+            if (count <= 0) {
+                clearInterval(nextVideoInterval);
+                // Play Next
+                hideNextVideoOverlay();
+                video.classList.remove('fade-out-video');
+                playMovie(currentMovieIndex + 1);
+            }
+        }, 1000);
+
+        // Allow cancellation via click anywhere (handled by togglePlay check?)
+        // If user clicks, isVideoEnded is checked there. logic handles restart.
+
+    } else {
+        // AUTOPLAY OFF: Fade out -> Show Static Overlay -> Open Sidebar -> Wait 2s -> Exit Fullscreen
+        video.classList.add('fade-out-video');
+        updatePlayIcon(false);
+        changePlayIconToReplay(); // Show rotate-ccw
+        
+        // Show Overlay (Static)
+        if (nextMovie) {
+            showNextVideoOverlay(nextMovie, false);
+        } else {
+            // End of playlist, maybe show "Finished"
+             showNextVideoOverlay({ name: 'Playlist Completed' }, false, true);
+        }
+
+        // 1. Open Sidebar immediately (as requested "open sidebar dulu") via fade delay
+        setTimeout(() => {
+             sidebar.classList.remove('collapsed');
+             scrollToActiveItem();
+        }, 500); 
+
+        // 2. Wait 2 seconds (after fade logic) -> Exit Fullscreen
+        // fade logic starts at 0s. Sidebar at 0.5s. Fullscreen exit at 2s.
+        setTimeout(() => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        }, 2000); 
+    }
 });
+
+// =====================================================
+// NEXT VIDEO OVERLAY HELPERS
+// =====================================================
+const nextOverlay = document.getElementById('nextVideoOverlay');
+const nextTitle = document.getElementById('nextTitle');
+const nextTimer = document.getElementById('nextTimer');
+const nextContentBox = document.querySelector('.next-card');
+
+function showNextVideoOverlay(movie, isAutoplay, isEnd = false) {
+    if (!nextOverlay) return;
+    
+    nextTitle.innerText = movie.name;
+    nextOverlay.classList.add('visible');
+    
+    const coverImg = document.getElementById('nextCoverImg');
+    const fallbackDiv = document.getElementById('nextCoverFallback');
+
+    // Populate Cover
+    if (movie.coverPath) {
+        coverImg.src = movie.coverPath;
+        coverImg.style.display = 'block';
+        fallbackDiv.style.display = 'none';
+    } else {
+        coverImg.style.display = 'none';
+        fallbackDiv.style.display = 'flex';
+    }
+
+    if (isAutoplay) {
+        nextTimer.style.display = 'block';
+        nextTimer.innerText = 'Playing next video in 5s';
+        nextContentBox.classList.add('has-timer');
+        
+        // Reset animation state
+        nextContentBox.classList.remove('animating');
+        
+    } else {
+        nextTimer.style.display = 'none';
+        nextContentBox.classList.remove('has-timer');
+        nextContentBox.classList.remove('animating');
+        
+        if (isEnd) {
+             document.querySelector('.next-label').innerText = "Finished";
+        } else {
+             document.querySelector('.next-label').innerText = "Up Next";
+        }
+    }
+}
+
+function hideNextVideoOverlay() {
+    if (!nextOverlay) return;
+    nextOverlay.classList.remove('visible');
+    nextContentBox.classList.remove('animating'); // Reset bar
+    
+    if (nextVideoInterval) {
+        clearInterval(nextVideoInterval);
+        nextVideoInterval = null;
+    }
+}
+
+function updateNextTimerText(seconds) {
+    if (nextTimer) nextTimer.innerText = `Playing next video in ${seconds}s`;
+}
+
+function changePlayIconToReplay() {
+    // Force icon to rotate-ccw
+    const icon = document.getElementById('playIcon');
+    icon.setAttribute('data-lucide', 'rotate-ccw');
+    lucide.createIcons();
+    playBtn.title = "Replay";
+}
+
+function exitOnNetworkEnd() {
+    // Default behavior if playlist ends: Open sidebar
+    if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+    }
+    sidebar.classList.remove('collapsed');
+    scrollToActiveItem();
+}
+
+function scrollToActiveItem() {
+    // Find active item
+    const activeEl = document.querySelector('.movie-item.active');
+    if (activeEl) {
+        // Scroll list so item is near top but with 50px offset
+        // activeEl.scrollIntoView() aligns to top edge (0px). To add offset, we use scrollTop.
+        const container = document.getElementById('movieList').parentElement; // wrapper .movie-list-wrapper or #movieList itself depending on css
+        // Assuming #movieList is the scrollable container or its parent? 
+        // Let's check CSS structure from previous context. 
+        // Structure: .movie-list-wrapper (overflow-y: auto) > .movie-list > .movie-item
+        
+        const wrapper = document.querySelector('.movie-list-wrapper');
+        if (wrapper) {
+             const itemTop = activeEl.offsetTop;
+             // We want itemTop to be at 50px from wrapper top
+             wrapper.scrollTo({
+                 top: itemTop - 50,
+                 behavior: 'smooth'
+             });
+        } else {
+             // Fallback
+             activeEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+}
 
 // =====================================================
 // SKIP BUTTONS
@@ -885,24 +1124,39 @@ document.getElementById('sidebarToggle').addEventListener('click', () => {
 // =====================================================
 // KEYBOARD SHORTCUTS
 // =====================================================
+// =====================================================
+// KEYBOARD SHORTCUTS
+// =====================================================
 document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT') return;
+    // Only if video is loaded or UI is active
+    if (currentMovieIndex === -1 && !video.src) return;
+
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
     
+    // Global Prevent Default for keys we handle
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) || e.key === ' ' || e.key === 'k') {
+        e.preventDefault();
+    }
+
     switch (e.code) {
         case 'Space':
-            e.preventDefault();
+        case 'KeyK': // Support K pause
+            e.stopPropagation();
             togglePlay();
             break;
-        // ArrowLeft & ArrowRight handled by showSkipIndicator listener below
+        case 'ArrowLeft':
+            showSkipIndicator('left');
+            break;
+        case 'ArrowRight':
+            showSkipIndicator('right');
+            break;
         case 'ArrowUp':
-            e.preventDefault();
             video.volume = Math.min(1, video.volume + 0.1);
             volumeSlider.value = video.volume;
             updateVolumeIcon(video.volume);
             updateVolumeSliderStyle(video.volume);
             break;
         case 'ArrowDown':
-            e.preventDefault();
             video.volume = Math.max(0, video.volume - 0.1);
             volumeSlider.value = video.volume;
             updateVolumeIcon(video.volume);
@@ -919,6 +1173,12 @@ document.addEventListener('keydown', (e) => {
                 document.exitFullscreen();
             }
             break;
+    }
+    
+    // Also handle ' ' key explicitly if not caught by code 'Space'
+    if (e.key === ' ' && e.code !== 'Space') {
+         e.stopPropagation();
+         togglePlay();
     }
 });
 
@@ -1085,6 +1345,13 @@ function showSkipIndicator(direction) {
         }, 200);
     }
     
+    // RESET ENDED STATE ON SEEK
+    if (isVideoEnded) {
+        isVideoEnded = false;
+        video.classList.remove('fade-out-video');
+        hideNextVideoOverlay();
+    }
+    
     // Show indicator
     indicator.classList.add('visible');
     
@@ -1151,20 +1418,8 @@ function showSkipIndicator(direction) {
 
 
 
-// Keyboard listener
-// Keyboard listener
-document.addEventListener('keydown', (e) => {
-    // Only if video is loaded
-    if (currentMovieIndex === -1 || !video.src) return;
-    
-    if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        showSkipIndicator('left');
-    } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        showSkipIndicator('right');
-    }
-});
+// Keyboard listener merged above
+
 
 // =====================================================
 // LOGO ENTRANCE ANIMATION
@@ -1231,6 +1486,29 @@ if (settingsBtn) {
     });
 }
 
+// AUTOPLAY MENU LOGIC
+document.querySelectorAll('[data-autoplay]').forEach(opt => {
+    opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mode = opt.dataset.autoplay; // 'never' or 'always'
+        autoplayNext = (mode === 'always');
+        
+        sessionStorage.setItem('autoplayNext', autoplayNext);
+        
+        // Update UI active state
+        document.querySelectorAll('[data-autoplay]').forEach(el => el.classList.remove('active'));
+        opt.classList.add('active');
+        
+        // Close menu
+        settingsMenu.classList.remove('visible');
+    });
+});
+
+// Initialize UI based on state
+const autoplayMode = autoplayNext ? 'always' : 'never';
+const activeAutoplayOpt = document.querySelector(`[data-autoplay="${autoplayMode}"]`);
+if (activeAutoplayOpt) activeAutoplayOpt.classList.add('active');
+
 // Close menu when clicking outside
 document.addEventListener('click', (e) => {
     if (settingsMenu && settingsMenu.classList.contains('visible') && !settingsMenu.contains(e.target) && e.target !== settingsBtn) {
@@ -1294,6 +1572,47 @@ function updateResumeMenuState() {
     resumeSubmenu.querySelectorAll('.menu-item').forEach(el => {
         const mode = el.getAttribute('data-resume');
         el.classList.toggle('active', mode === resumeMode);
+    });
+}
+
+// =====================================================
+// AUTOPLAY NEXT LOGIC
+// =====================================================
+const autoplaySubmenu = document.getElementById('autoplaySubmenu');
+
+// Initialize State
+// is set at top level: let autoplayNext = sessionStorage.getItem('autoplayNext') === 'true';
+// Update UI initially
+updateAutoplayMenuState();
+
+if (autoplaySubmenu) {
+    autoplaySubmenu.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const valStr = item.getAttribute('data-autoplay');
+            if (valStr) {
+                const newState = (valStr === 'true');
+                autoplayNext = newState;
+                // Save to SessionStorage (clears on browser close, persists on refresh)
+                sessionStorage.setItem('autoplayNext', newState);
+                
+                updateAutoplayMenuState();
+                
+                const label = newState ? 'Autoplay' : 'Never';
+                showToast(`Autoplay Next: ${label}`, 'success');
+                
+                settingsMenu.classList.remove('visible');
+            }
+        });
+    });
+}
+
+function updateAutoplayMenuState() {
+    if (!autoplaySubmenu) return;
+    autoplaySubmenu.querySelectorAll('.menu-item').forEach(el => {
+        const valStr = el.getAttribute('data-autoplay');
+        const boolVal = (valStr === 'true');
+        el.classList.toggle('active', boolVal === autoplayNext);
     });
 }
 
