@@ -1063,6 +1063,37 @@ window.addEventListener('load', () => {
 // Initialize Lucide icons for skip indicators
 lucide.createIcons();
 
+// Toast Notification Helper
+function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    // Logic Icon
+    let iconName = 'info';
+    if (type === 'error') iconName = 'alert-circle';
+    if (type === 'success') iconName = 'check-circle';
+    if (type === 'warning') iconName = 'alert-triangle';
+    
+    toast.innerHTML = `<i data-lucide="${iconName}"></i> <span>${message}</span>`;
+    
+    container.appendChild(toast);
+    if (window.lucide) window.lucide.createIcons();
+    
+    // Animate In
+    requestAnimationFrame(() => {
+        toast.classList.add('visible');
+    });
+    
+    // Auto Remove
+    setTimeout(() => {
+        toast.classList.remove('visible');
+        setTimeout(() => toast.remove(), 350);
+    }, duration);
+}
+
 // =====================================================
 // SETTINGS & REPAIR LOGIC
 // =====================================================
@@ -1113,7 +1144,8 @@ if (menuRepair) {
         settingsMenu.classList.remove('visible');
         
         if (currentMovieIndex === -1) {
-            // Optional: Show toast "No video selected"
+            // Show toast warning (using new system)
+            showToast("Please select a video to repair first", 'warning');
             return;
         }
         
@@ -1141,16 +1173,15 @@ if (confirmRepairBtn) {
         console.log(`[REPAIR] Snapshot: Time=${savedTime}, Playing=${wasPlaying}`);
         
         // UNLOAD VIDEO TO RELEASE LOCK
-        // Important: Windows locks the file if it's in the <video> tag
         video.pause();
         video.removeAttribute('src');
         video.load();
         
-        // Show Toast Loader
+        // Show Generating Loader (still appropriate for heavy process)
         showGeneratingLoader(0, 1, `Repairing: ${movie.name}`);
         
         try {
-            // Invoke Repair (Returns new path, likely .mp4)
+            // Invoke Repair
             const newPath = await window.api.invoke('repair-video', movie.videoPath);
             
             // On Success
@@ -1160,8 +1191,16 @@ if (confirmRepairBtn) {
             movie.videoPath = newPath;
             currentMovies[currentMovieIndex].videoPath = newPath;
             
-            // Update Toast
-            showGeneratingLoader(1, 1, 'Repair Complete');
+            // Hide Loader
+            const loader = document.getElementById('generationLoader');
+             if (loader) {
+                loader.classList.add('hiding');
+                loader.classList.remove('visible');
+                setTimeout(() => loader.classList.remove('hiding'), 400);
+            }
+            
+            // Show Success Toast
+            showToast('Repair Complete', 'success');
             
             // Reload Video Source
             const newSrc = `file://${newPath}?t=${Date.now()}`;
@@ -1185,31 +1224,20 @@ if (confirmRepairBtn) {
                 }
             }, { once: true });
 
-            
-            // Hide Loader after delay
-            setTimeout(() => {
-                const loader = document.getElementById('generationLoader');
-                if (loader) {
-                    loader.classList.add('hiding');
-                    loader.classList.remove('visible');
-                    setTimeout(() => loader.classList.remove('hiding'), 400);
-                }
-            }, 1000);
-            
         } catch (err) {
             console.error('[REPAIR] Failed:', err);
-             showGeneratingLoader(1, 1, 'Repair Failed');
+             
+             // Hide loader
+             const loader = document.getElementById('generationLoader');
+             if (loader) loader.classList.remove('visible');
+
+             // Show Error Toast
+             showToast('Repair Failed: ' + (err.message || 'Unknown error'), 'error');
              
              // RESTORE VIDEO IF FAILED
              const oldSrc = `file://${movie.videoPath}?t=${Date.now()}`;
              video.src = oldSrc;
-             video.currentTime = savedTime; // Try to restore pos
-             
-             // Hide loader logic
-             setTimeout(() => {
-                const loader = document.getElementById('generationLoader');
-                if (loader) loader.classList.remove('visible');
-            }, 2000);
+             video.currentTime = savedTime; 
         }
     });
 }

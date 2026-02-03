@@ -489,35 +489,47 @@ ipcMain.handle('repair-video', async (event, videoPath) => {
                     reject(err);
                 })
                 .on('end', () => {
-                    console.log('[REPAIR] Finished. Swapping files...');
-                    try {
-                        // 1. Remove original file (even if it was .mkv)
-                        if (fs.existsSync(normVideoPath)) {
-                             // Retry logic for file lock?
-                             try {
-                                fs.rmSync(normVideoPath, { force: true });
-                             } catch(rmErr) {
-                                 console.warn('[REPAIR] Could not delete original immediately (Lock?). Waiting 1s...');
-                                 // This is risky in async context without pause, but let's try strict sync first.
-                                 throw rmErr; 
-                             }
+                    console.log('[REPAIR] Finished. Waiting for locks to release...');
+                    
+                    // Add delay to ensure FFmpeg/OS fully releases file locks
+                    setTimeout(() => {
+                        try {
+                            console.log('[REPAIR] Swapping files...');
+                            
+                            // 1. Remove original file (even if it was .mkv)
+                            if (fs.existsSync(normVideoPath)) {
+                                 // Retry logic for file lock?
+                                 try {
+                                    fs.rmSync(normVideoPath, { force: true });
+                                 } catch(rmErr) {
+                                     console.warn(`[REPAIR] Could not delete original: ${rmErr.message}. Retrying in 500ms...`);
+                                     // Simple sync wait spin (not ideal but effective for short locks)
+                                     const start = Date.now();
+                                     while (Date.now() - start < 500) {} 
+                                     fs.rmSync(normVideoPath, { force: true });
+                                 }
+                            }
+                            
+                            // 2. Rename temp file to final .mp4 path
+                            if (fs.existsSync(finalPath) && finalPath !== normVideoPath) {
+                                 fs.rmSync(finalPath, { force: true });
+                            }
+                            
+                            fs.renameSync(tempPath, finalPath);
+                            
+                            console.log(`[REPAIR] Success. New path: ${finalPath}`);
+                            resolve(finalPath);
+                        } catch (e) {
+                            console.error('[REPAIR] Swap failed:', e);
+                            // Cleanup temp if swap failed (swallow error to preserve original error)
+                            try {
+                                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+                            } catch (cleanupErr) {
+                                console.warn('[REPAIR] Failed to cleanup temp file:', cleanupErr.message);
+                            }
+                            reject(e);
                         }
-                        
-                        // 2. Rename temp file to final .mp4 path
-                        if (fs.existsSync(finalPath) && finalPath !== normVideoPath) {
-                             fs.rmSync(finalPath, { force: true });
-                        }
-                        
-                        fs.renameSync(tempPath, finalPath);
-                        
-                        console.log(`[REPAIR] Success. New path: ${finalPath}`);
-                        resolve(finalPath);
-                    } catch (e) {
-                        console.error('[REPAIR] Swap failed:', e);
-                        // Cleanup temp if swap failed
-                        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                        reject(e);
-                    }
+                    }, 1000); // 1 second buffer
                 })
                 .run();
         });
