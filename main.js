@@ -88,60 +88,7 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
-// =====================================================
-// FILE SCANNING LOGIC
-// =====================================================
 
-ipcMain.handle('scan-directory', async () => {
-    try {
-        let movies;
-        if (isDev) {
-            const scanPath = path.join(process.cwd(), '..');
-            movies = scanMoviesDev(scanPath);
-        } else {
-            const config = loadConfig();
-            if (config.libraryPath && fs.existsSync(config.libraryPath)) {
-                movies = scanMoviesProduction(config.libraryPath, 0, 3);
-            } else {
-                return { movies: [], needsGeneration: false };
-            }
-        }
-        
-        // Check which videos need preview generation
-        const needsGeneration = checkPreviewsNeeded(movies);
-        
-        return { movies, needsGeneration };
-    } catch (error) {
-        console.error("Scan error:", error);
-        return { movies: [], needsGeneration: false };
-    }
-});
-
-ipcMain.handle('select-folder', async () => {
-    const result = await dialog.showOpenDialog({
-        properties: ['openDirectory']
-    });
-    if (!result.canceled && result.filePaths.length > 0) {
-        const selectedPath = result.filePaths[0];
-        
-        if (!isDev) {
-            const config = loadConfig();
-            config.libraryPath = selectedPath;
-            saveConfig(config);
-        }
-        
-        let movies;
-        if (isDev) {
-            movies = scanMoviesDev(selectedPath);
-        } else {
-            movies = scanMoviesProduction(selectedPath, 0, 3);
-        }
-        
-        const needsGeneration = checkPreviewsNeeded(movies);
-        return { movies, needsGeneration };
-    }
-    return null;
-});
 
 // =====================================================
 // PREVIEW THUMBNAIL GENERATION
@@ -226,6 +173,17 @@ function findExistingCover(videoPath) {
     }
 }
 
+// Find LEGACY preview (located inside subfolder next to video)
+function findLegacyPreview(videoPath) {
+    const dir = path.dirname(videoPath);
+    const prevDir = path.join(dir, PREVIEW_FOLDER);
+    const baseName = path.basename(videoPath, path.extname(videoPath));
+    const legacyPath = path.join(prevDir, `${baseName}_preview.mp4`);
+    
+    if (fs.existsSync(legacyPath)) return legacyPath;
+    return null;
+}
+
 // Core Recursive Scanner
 function scanRecursive(currentPath, rootPath, depth, maxDepth, movies) {
     if (depth > maxDepth) return;
@@ -243,14 +201,12 @@ function scanRecursive(currentPath, rootPath, depth, maxDepth, movies) {
         const videoName = path.basename(videoPath, path.extname(videoPath));
         
         // Determination of Scan Mode for THIS video
-        // If the folder was deemed "Folder Based" (1 video), use that mode. 
-        // Otherwise treat as file-based (loose file).
         const currentMode = (mode === 'folder-based') ? 'folder-based' : 'file-based';
         
         // Display Name: Folder Name (if folder-based) OR File Name
         const displayName = (currentMode === 'folder-based') ? dirName : videoName;
         
-        // Thumbnail Directory
+        // Thumbnail Directory (New Centralized Structure)
         const thumbnailDir = getThumbnailDir(rootPath, videoPath, currentMode);
         
         // Cover Logic:
@@ -261,8 +217,16 @@ function scanRecursive(currentPath, rootPath, depth, maxDepth, movies) {
         const generatedCoverPath = path.join(thumbnailDir, 'cover.jpg');
         
         // Preview Logic:
-        // 1. Define path for generated preview
+        // 1. Check Legacy Path (In subfolder)
+        let previewPath = findLegacyPreview(videoPath);
+        
+        // 2. Define path for New Generated preview (Centralized)
         const generatedPreviewPath = path.join(thumbnailDir, 'preview.mp4');
+        
+        // If legacy found, use it. If not, check if new generated one exists.
+        if (!previewPath && fs.existsSync(generatedPreviewPath)) {
+            previewPath = generatedPreviewPath;
+        }
 
         movies.push({
             name: displayName,
@@ -271,9 +235,9 @@ function scanRecursive(currentPath, rootPath, depth, maxDepth, movies) {
             mode: currentMode,
             
             // Paths for Assets
-            coverPath: coverPath, // null if not found (will trigger generation)
+            coverPath: coverPath, 
             generatedCoverPath: generatedCoverPath,
-            previewPath: fs.existsSync(generatedPreviewPath) ? generatedPreviewPath : null,
+            previewPath: previewPath,
             generatedPreviewPath: generatedPreviewPath
         });
     }
@@ -396,50 +360,72 @@ function generateCoverImage(videoPath, outputPath) {
 // IPC: Process Generation Queue
 ipcMain.handle('generate-assets', async (event, { movies, types }) => {
     // types = ['cover', 'preview']
-    const total = (types.includes('cover') ? movies.length : 0) + (types.includes('preview') ? movies.length : 0);
+    
+    // Filter out what actually needs work so Total is accurate
+    const needsCoverList = types.includes('cover') 
+        ? movies.filter(m => !m.coverPath) 
+        : [];
+    
+    const needsPreviewList = types.includes('preview') 
+        ? movies.filter(m => !m.previewPath) 
+        : [];
+        
+    const total = needsCoverList.length + needsPreviewList.length;
     let completed = 0;
     
-    // 1. Generate Covers First (Faster, immediate visual feedback)
-    if (types.includes('cover')) {
-        for (const movie of movies) {
-            if (movie.coverPath) continue; // Skip if already has cover (e.g. from file)
+    // If nothing to do, return immediately
+    if (total === 0) return movies;
+    
+    // 1. Generate Covers
+    for (const movie of needsCoverList) {
+        try {
+            await generateCoverImage(movie.videoPath, movie.generatedCoverPath);
+            movie.coverPath = movie.generatedCoverPath;
+            completed++;
             
-            try {
-                await generateCoverImage(movie.videoPath, movie.generatedCoverPath);
-                movie.coverPath = movie.generatedCoverPath; // Update object
-                completed++;
-                
-                mainWindow.webContents.send('generation-progress', {
-                    current: completed,
-                    total: total,
-                    type: 'cover',
-                    movie: movie
-                });
-            } catch (err) {
-                console.error(`Failed cover gen for ${movie.name}`, err);
-            }
+            mainWindow.webContents.send('generation-progress', {
+                current: completed,
+                total: total,
+                type: 'cover',
+                movie: movie
+            });
+        } catch (err) {
+            console.error(`Failed cover gen for ${movie.name}`, err);
+            // Still count as completed (failed) so UI doesn't hang
+            completed++;
+            mainWindow.webContents.send('generation-progress', {
+                current: completed,
+                total: total,
+                type: 'cover',
+                movie: movie,
+                error: true
+            });
         }
     }
 
-    // 2. Generate Video Previews (Slower)
-    if (types.includes('preview')) {
-        for (const movie of movies) {
-            if (movie.previewPath) continue; 
+    // 2. Generate Previews
+    for (const movie of needsPreviewList) {
+        try {
+            await generatePreviewVideo(movie.videoPath, movie.generatedPreviewPath);
+            movie.previewPath = movie.generatedPreviewPath;
+            completed++;
             
-            try {
-                await generatePreviewVideo(movie.videoPath, movie.generatedPreviewPath);
-                movie.previewPath = movie.generatedPreviewPath; // Update object
-                completed++;
-                
-                mainWindow.webContents.send('generation-progress', {
-                    current: completed,
-                    total: total,
-                    type: 'preview',
-                    movie: movie
-                });
-            } catch (err) {
-                console.error(`Failed preview gen for ${movie.name}`, err);
-            }
+            mainWindow.webContents.send('generation-progress', {
+                current: completed,
+                total: total,
+                type: 'preview',
+                movie: movie
+            });
+        } catch (err) {
+            console.error(`Failed preview gen for ${movie.name}`, err);
+            completed++;
+             mainWindow.webContents.send('generation-progress', {
+                current: completed,
+                total: total,
+                type: 'preview',
+                movie: movie,
+                error: true
+            });
         }
     }
     

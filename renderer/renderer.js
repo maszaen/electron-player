@@ -68,18 +68,24 @@ async function loadLibrary() {
     await handleScanResult(result);
 }
 
+// UPDATED: Use overlay, do not clear movieList
 function showGeneratingLoader(current, total, name = '') {
     const percent = total > 0 ? (current / total) * 100 : 0;
-    movieList.innerHTML = `
-        <div class="generating-loader">
-            <div class="loader-text">Generating thumbnails</div>
-            <div class="loader-progress">${current}/${total}</div>
-            <div class="loader-bar">
-                <div class="loader-bar-fill" style="width: ${percent}%"></div>
-            </div>
-            ${name ? `<div class="loader-name">${name}</div>` : ''}
-        </div>
-    `;
+    
+    const loader = document.getElementById('generationLoader');
+    const progressText = document.getElementById('genProgressText');
+    const progressBar = document.getElementById('genProgressBar');
+    const detailText = document.getElementById('genDetailText');
+    
+    if (loader && progressText && progressBar) {
+        // Show overlay
+        loader.classList.add('visible');
+        
+        // Update content
+        progressText.innerText = `${current}/${total}`;
+        progressBar.style.width = `${percent}%`;
+        if (detailText) detailText.innerText = name;
+    }
 }
 
 loadLibrary();
@@ -98,6 +104,8 @@ async function handleScanResult(result) {
     if (hasCovers || hasPreviews) {
         isGenerating = true;
         const totalOps = covers.length + previews.length;
+        console.log(`[GEN] Starting generation. Total ops: ${totalOps} (Covers: ${covers.length}, Previews: ${previews.length})`);
+        
         showGeneratingLoader(0, totalOps, 'Initializing generation...');
         
         // Combine all movies needing attention
@@ -111,21 +119,41 @@ async function handleScanResult(result) {
         if (hasPreviews) types.push('preview');
         
         // Trigger generation
+        console.log('[GEN] Invoking generating-assets...');
         await window.api.invoke('generate-assets', { 
             movies: moviesToProcess, 
             types: types 
         });
+        
+        console.log('[GEN] Invoke finished. Force hiding loader.');
+        
+        // Force hide loader when process completes (even if 0 items were processed)
+        isGenerating = false;
+        const loader = document.getElementById('generationLoader');
+        if (loader) {
+            console.log('[GEN] Triggering exit animation.');
+            loader.classList.add('hiding');
+            loader.classList.remove('visible');
+            setTimeout(() => {
+                loader.classList.remove('hiding');
+            }, 400);
+        } else {
+            console.log('[GEN] Loader element not found!');
+        }
+    } else {
+        console.log('[GEN] No generation needed.');
     }
 }
 
 document.getElementById('scanBtn').addEventListener('click', async () => {
+    console.log('[UI] Scan button clicked');
     const result = await window.api.selectFolder();
     await handleScanResult(result);
 });
 
 // Update progress listener to handle types
 window.api.onGenerationProgress((progress) => {
-    // progress: { current, total, type, movie }
+    console.log(`[GEN-PROGRESS] ${progress.type} | Current: ${progress.current} / Total: ${progress.total} | Movie: ${progress.movie.name}`);
     
     // Update local movie data
     const movieIndex = currentMovies.findIndex(m => m.videoPath === progress.movie.videoPath);
@@ -137,19 +165,24 @@ window.api.onGenerationProgress((progress) => {
             const el = movieList.children[movieIndex];
             if (el) {
                 const coverEl = el.querySelector('.movie-cover');
+                // Force cache bust
+                const newSrc = `file://${progress.movie.coverPath}?t=${Date.now()}`;
+                
                 if (coverEl.tagName === 'DIV') {
-                    // Replace div with img
+                    // Replace fallback DIV with IMG
                     const img = document.createElement('img');
                     img.className = 'movie-cover movie-cover-img';
-                    img.src = progress.movie.coverPath;
+                    img.src = newSrc;
                     img.alt = '';
                     el.replaceChild(img, coverEl);
                 } else {
-                    coverEl.src = progress.movie.coverPath;
+                    // Update existing IMG
+                    coverEl.src = newSrc;
                 }
             }
         } else if (progress.type === 'preview') {
             original.previewPath = progress.movie.previewPath;
+            // No valid visual update for preview needed immediately (it loads on hover)
         }
     }
     
@@ -157,11 +190,24 @@ window.api.onGenerationProgress((progress) => {
     showGeneratingLoader(progress.current, progress.total, label);
     
     if (progress.current >= progress.total) {
+        console.log('[GEN-PROGRESS] Progress complete (current >= total). Hiding loader in 1s...');
         isGenerating = false;
+        
+        // Wait a bit before closing
         setTimeout(() => {
             const loader = document.getElementById('generationLoader');
-            if (loader) loader.classList.remove('visible');
-        }, 1000);
+            if (loader) {
+                // Trigger exit animation
+                console.log('[GEN-PROGRESS] Triggering exit animation (scale down).');
+                loader.classList.add('hiding');
+                loader.classList.remove('visible');
+                
+                // Reset after animation
+                setTimeout(() => {
+                    loader.classList.remove('hiding');
+                }, 400); // Match CSS transition
+            }
+        }, 1200);
     }
 });
 
@@ -981,6 +1027,43 @@ function showSkipIndicator(direction) {
     }, 1000);
     if (isLeft) leftFadeOutTimeout = fadeOutTimeout;
     else rightFadeOutTimeout = fadeOutTimeout;
+}
+
+// =====================================================
+// TEST BUTTON LOGIC
+// =====================================================
+const testBtn = document.getElementById('testToastBtn');
+if (testBtn) {
+    testBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent bubbles
+        
+        console.log('[TEST] Toast simulation started');
+        let progress = 0;
+        const total = 5;
+        
+        // Show initial state
+        showGeneratingLoader(0, total, 'Preparing test...');
+        
+        const interval = setInterval(() => {
+            progress++;
+            showGeneratingLoader(progress, total, `Processing item ${progress}...`);
+            
+            if (progress >= total) {
+                console.log('[TEST] finished');
+                clearInterval(interval);
+                
+                // Trigger finish animation
+                setTimeout(() => {
+                    const loader = document.getElementById('generationLoader');
+                    if (loader) {
+                        loader.classList.add('hiding');
+                        loader.classList.remove('visible');
+                        setTimeout(() => loader.classList.remove('hiding'), 400);
+                    }
+                }, 1000);
+            }
+        }, 800); // 800ms
+    });
 }
 
 // Keyboard listener

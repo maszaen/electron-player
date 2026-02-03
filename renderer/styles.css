@@ -20,8 +20,8 @@
     --bg-sidebar: #080808;
     --bg-card: #111111;
     --bg-hover: #1a1a1a;
-    --accent: #3b82f6;  
-    --accent30: #3b83f659;
+    --accent: #6829dd;  
+    --accent30: #6829dd59;
     --accent-glow: rgba(59, 130, 246, 0.3);
     --text-primary: #ffffff;
     --text-secondary: #a0a0a0;
@@ -37,11 +37,9 @@
 
 /* Kasih custom focus style yang lebih mantep */
 *:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.3); /* Langsung di sini warnanya */
+  outline: 0px solid transparent; /* Langsung di sini warnanya */
   outline-offset: 2px;
-  
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px; /* Opsional biar cakep */
+
 }
 
 * {
@@ -83,11 +81,9 @@ body {
 }
 
 .titlebar-title {
-    font-size: 12px;
+    width: 70px;
+    opacity: 0.9;
     padding: 0 14px;
-    font-weight: 500;
-    color: var(--text-muted);
-    letter-spacing: 0.3px;
 }
 
 .window-controls {
@@ -109,9 +105,14 @@ body {
     cursor: pointer;
     transition: all 0.15s ease;
 }
+.close-btn {
+  width: 48px;
+    padding-right: 2px;
+
+}
 
 .control-btn:focus-visible {
-  outline: 0px solid;
+  outline: 0px solid transparent;
   outline-offset: 2px;
   /* atau bisa pake box-shadow */
   /* box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5); */
@@ -267,69 +268,11 @@ body {
     pointer-events: none;
 }
 
-/* Generating Loader - Centered in sidebar */
-.generating-loader {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    width: 80%;
-}
-
-.loader-spinner {
-    width: 28px;
-    height: 28px;
-    border: 2px solid rgba(229, 57, 53, 0.2);
-    border-top-color: #e53935;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
 
-.loader-text {
-    font-size: 10px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
 
-.loader-progress {
-    font-size: 14px;
-    font-weight: 600;
-    color: #e53935;
-}
-
-.loader-bar {
-    width: 100%;
-    height: 4px;
-    background: rgba(229, 57, 53, 0.2);
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.loader-bar-fill {
-    height: 100%;
-    background: #e53935;
-    border-radius: 2px;
-    transition: width 0.3s ease;
-}
-
-.loader-name {
-    font-size: 10px;
-    color: var(--text-muted);
-    max-width: 100%;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
 
 /* Movie Item - Big Thumbnail with Overlay */
 .movie-item {
@@ -454,7 +397,7 @@ video {
 
 
 .logo-inside {
-   background: linear-gradient(
+    background: linear-gradient(
       to bottom,
       #d682ff 70%,
       #6829dd 95%
@@ -464,6 +407,7 @@ video {
     padding: 15px;
     border-radius: 30px;
     position: relative;
+    transition: all 0.5 ease;
 }
 /* Empty State Placeholder */
 .video-placeholder {
@@ -811,7 +755,11 @@ video {
     top: 0;
     left: 0;
     height: 100%;
-    background: #e53935;
+    background: linear-gradient(
+    to right,
+    #6829dd 50%,
+    #d682ff 90%
+  );
     width: 0%;
     border-radius: 2px;
     pointer-events: none;
@@ -824,7 +772,7 @@ video {
     top: 50%;
     width: 12px;
     height: 12px;
-    background: #e53935;
+    background: #d682ff;
     border-radius: 50%;
     transform: translate(-50%, -50%) scale(0);
     pointer-events: none;
@@ -837,7 +785,7 @@ video {
 }
 
 .progress-container:hover .progress-fill {
-    box-shadow: 0 0 10px rgba(229, 57, 53, 0.5);
+    box-shadow: 0 0 10px #5720beff ;
 }
 
 .progress-preview {
@@ -1164,6 +1112,109 @@ video {
 .movie-item {
     animation: fadeIn 0.25s ease;
 }
+
+/* =====================================================
+   GENERATION OVERLAY
+   ===================================================== */
+/* =====================================================
+   GENERATION TOAST (Top Right)
+   ===================================================== */
+.generation-overlay {
+    position: fixed;
+    top: 56px;
+    right: 24px;
+    width: 320px;
+    height: auto;
+    background: rgba(18, 18, 18, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+    
+    /* Default hidden state */
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(30px); /* Start from left */
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.generation-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+}
+
+/* Close state animation (Scale down fade out) */
+.generation-overlay.hiding {
+    opacity: 0;
+    transform: scale(0.9);
+}
+
+.loader-content {
+    text-align: left;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.loader-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.loader-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+}
+
+.loader-progress {
+    font-size: 13px;
+    font-weight: 600;
+    color: #d682ff ;
+    margin: 0;
+}
+
+.loader-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 0;
+}
+
+.loader-bar-fill {
+    height: 100%;
+    background: linear-gradient(
+    to right,
+    #6829dd 50%,
+    #d682ff 90%
+  );
+    width: 0%;
+    transition: width 0.2s ease;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+.loader-detail {
+    font-size: 11px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+
 
 
 @media (max-width: 800px) {

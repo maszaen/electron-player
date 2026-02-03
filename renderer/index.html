@@ -11,7 +11,8 @@
 <body>
     <!-- Custom Title Bar -->
     <div class="titlebar">
-        <span class="titlebar-title">Tons</span>
+        <!-- <span class="titlebar-title">Tons</span> -->
+        <img src="../assets/icon-type.png" alt="App Icon" class="titlebar-title">
         <div class="window-controls">
             <button class="control-btn refresh-btn" id="refreshBtn" title="Refresh">
                 <i data-lucide="rotate-cw"></i>
@@ -56,9 +57,13 @@
             <div class="top-overlay">
                 <div class="top-left-controls">
                     <button class="icon-btn" id="sidebarToggle" title="Toggle Sidebar">
-                        <i data-lucide="panel-right"></i>
+                        <i data-lucide="panel-left"></i>
                     </button>
-                    <div class="video-title" id="videoTitle">No Video Playing</div>
+                    <!-- Test Button -->
+                    <button class="icon-btn" id="testToastBtn" title="Test Toast" style="margin-right: 15px;">
+                        <i data-lucide="zap"></i>
+                    </button>
+                    <div class="video-title" id="videoTitle">Select a video</div>
                 </div>
             </div>
 
@@ -98,6 +103,20 @@
                 <div class="skip-icon-stack">
                     <div class="skip-icon-outline"><i data-lucide="chevron-right"></i></div>
                     <div class="skip-icon-front"><i data-lucide="chevron-right"></i></div>
+                </div>
+            </div>
+            
+            <!-- Generation Overlay Loader -->
+            <div id="generationLoader" class="generation-overlay">
+                <div class="loader-content">
+                    <div class="loader-header">
+                        <div class="loader-text">Generating Media...</div>
+                        <div class="loader-progress" id="genProgressText">0/0</div>
+                    </div>
+                    <div class="loader-bar">
+                        <div class="loader-bar-fill" id="genProgressBar"></div>
+                    </div>
+                    <div class="loader-detail" id="genDetailText">Waiting...</div>
                 </div>
             </div>
 
