@@ -65,16 +65,23 @@
 
             <!-- Empty State Placeholder -->
             <div class="video-placeholder" id="videoPlaceholder">
-                <!-- <i data-lucide="play-circle"></i> -->
                 <div class="logo-inside">
-                    <!-- <i data-lucide="play-circle"></i> -->
                     <img src="../assets/icon-type.png" alt="App Icon" class="placeholder-logo">
                 </div>
                 <hr class="hr-vid-placeholder">
-
-
                 <h2>Ready to Play</h2>
                 <p>Open the sidebar and select<br>a video from your library</p>
+            </div>
+
+            <!-- PiP Active Placeholder -->
+            <div class="pip-overlay" id="pipActivePlaceholder">
+                <h2>Playing in Mini Player</h2>
+                <p>Toggle PiP to resume in big view</p>
+                
+                <button id="leavePipBtn" class="pip-restore-btn">
+                    <i data-lucide="minimize-2"></i>
+                    Restore Video
+                </button>
             </div>
 
             <video id="mainVideo">
@@ -201,7 +208,7 @@
                                     <i data-lucide="chevron-right" class="submenu-arrow" style="width: 14px; height: 14px;"></i>
                                     
                                     <!-- Submenu -->
-                                    <div class="submenu" style="bottom: 40px;"> <!-- Slight adjustment for position -->
+                                    <div class="submenu" style="bottom: 80px;"> <!-- Slight adjustment for position -->
                                         <div class="menu-item" id="menuRemerge">
                                             <span>Re-merge (Fast)</span>
                                         </div>
@@ -221,7 +228,7 @@
                                     <i data-lucide="chevron-right" class="submenu-arrow" style="width: 14px; height: 14px;"></i>
                                     
                                     <!-- Submenu -->
-                                    <div class="submenu">
+                                    <div class="submenu" style="bottom: 40px;">
                                         <div class="menu-item speed-opt" data-speed="0.5">0.5x</div>
                                         <div class="menu-item speed-opt" data-speed="0.75">0.75x</div>
                                         <div class="menu-item speed-opt active" data-speed="1">Normal</div>
@@ -230,9 +237,26 @@
                                         <div class="menu-item speed-opt" data-speed="2">2.0x</div>
                                     </div>
                                 </div>
+                                
+                                <!-- Resume Playback Menu -->
+                                <div class="menu-item has-submenu" id="menuResume">
+                                    <div class="menu-item-content">
+                                        <i data-lucide="history" style="width: 14px; height: 14px;"></i> 
+                                        <span>Resume Playback</span>
+                                    </div>
+                                    <i data-lucide="chevron-right" class="submenu-arrow" style="width: 14px; height: 14px;"></i>
+                                     <div class="submenu" id="resumeSubmenu">
+                                        <div class="menu-item" data-resume="always"><span>Autoplay</span></div>
+                                        <div class="menu-item" data-resume="ask"><span>Ask Everytime</span></div>
+                                        <div class="menu-item" data-resume="never"><span>Never</span></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
+                        <button class="icon-btn" id="pipBtn" title="Picture-in-Picture">
+                            <i data-lucide="picture-in-picture-2"></i>
+                        </button>
                         <button class="icon-btn" id="fullscreenBtn" title="Fullscreen">
                             <i data-lucide="maximize"></i>
                         </button>
@@ -249,6 +273,20 @@
                     <div class="modal-actions">
                         <button class="modal-btn cancel" id="cancelRepair">Cancel</button>
                         <button class="modal-btn confirm" id="confirmRepair">Start Repair</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resume Confirmation Modal -->
+            <div class="modal-overlay" id="resumeModal">
+                <div class="modal-content">
+                    <h3 class="modal-title">Resume Playback <span id="resumeTimeDisplay"></span>?</h3>
+                    <p class="modal-desc">
+                        Do you want to continue watching?<br>
+                    </p>
+                    <div class="modal-actions">
+                        <button class="modal-btn cancel" id="cancelResume">Start Over</button>
+                        <button class="modal-btn confirm" id="confirmResume">Resume</button>
                     </div>
                 </div>
             </div>

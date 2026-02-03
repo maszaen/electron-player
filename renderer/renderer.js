@@ -22,6 +22,9 @@ const sidebar = document.getElementById('sidebar');
 let isPlaying = false;
 let currentMovies = [];
 let currentMovieIndex = -1;
+let resumeMode = 'ask'; // 'always', 'never', 'ask'
+let lastSaveTime = 0;
+let hasSavedProgress = false;
 let previousVolume = 0.5; // Store volume before mute (default restore to 50%)
 let clickTimeout = null; // For single/double click detection
 const CLICK_DELAY = 250; // ms delay to distinguish single from double click
@@ -320,11 +323,12 @@ function renderMovies(movies) {
 // =====================================================
 // VIDEO PLAYBACK
 // =====================================================
-function playMovie(index) {
+async function playMovie(index) {
     const movie = currentMovies[index];
     if (!movie) return;
     
     currentMovieIndex = index;
+    hasSavedProgress = false; // Reset tracking for new video
 
     // Highlight active
     document.querySelectorAll('.movie-item').forEach((el, i) => {
@@ -333,14 +337,39 @@ function playMovie(index) {
 
     titleDisplay.innerText = movie.name;
     video.src = movie.videoPath;
-    video.play();
-    updatePlayIcon(true);
     
     // Hide placeholder
     document.querySelector('.main-content').classList.add('has-video');
-    
-    // Collapse sidebar when video selected
     sidebar.classList.add('collapsed');
+
+    // RESUME LOGIC
+    try {
+        const savedTime = await window.api.invoke('get-progress', movie.videoPath);
+        if (savedTime > 5) {
+             if (resumeMode === 'always') {
+                 video.currentTime = savedTime;
+                 video.play();
+                 updatePlayIcon(true);
+                 showToast(`Resumed at ${formatTime(savedTime)}`, 'info');
+             } else if (resumeMode === 'never') {
+                 video.currentTime = 0;
+                 video.play();
+                 updatePlayIcon(true);
+             } else {
+                 // Ask
+                 showResumeModal(savedTime);
+                 updatePlayIcon(false);
+             }
+        } else {
+             video.currentTime = 0;
+             video.play();
+             updatePlayIcon(true);
+        }
+    } catch (err) {
+        console.error("Resume error:", err);
+        video.play();
+        updatePlayIcon(true);
+    }
 }
 
 // Title click checks empty state
@@ -531,11 +560,39 @@ video.addEventListener('timeupdate', () => {
         progressThumb.style.left = `${pct}%`;
         timeDisplay.innerText = formatTime(video.currentTime);
         totalTimeDisplay.innerText = formatTime(video.duration);
+        
+        // Save Progress (Throttle 5s)
+        const now = Date.now();
+        // Resume Logic: > 20% Rule
+        const progressRatio = video.currentTime / video.duration;
+        
+        if (progressRatio > 0.2) {
+             // Save (Throttle 5s)
+            if (now - lastSaveTime > 5000 && !video.paused) {
+                if (currentMovieIndex !== -1) {
+                    const path = currentMovies[currentMovieIndex].videoPath;
+                    window.api.invoke('save-progress', { path, time: video.currentTime });
+                    hasSavedProgress = true;
+                }
+                lastSaveTime = now;
+            }
+        } else if (hasSavedProgress) {
+            // User sought back to < 20%, clear history
+            if (currentMovieIndex !== -1) {
+                window.api.invoke('clear-progress', currentMovies[currentMovieIndex].videoPath);
+                hasSavedProgress = false;
+            }
+        }
     }
 });
 
 video.addEventListener('ended', () => {
     updatePlayIcon(false);
+    // Clear progress on finish
+    if (currentMovieIndex !== -1) {
+        const path = currentMovies[currentMovieIndex].videoPath;
+        window.api.invoke('clear-progress', path);
+    }
 });
 
 // =====================================================
@@ -726,6 +783,56 @@ updateVolumeIcon(0);
 // FULLSCREEN
 // =====================================================
 document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+
+// Picture-in-Picture (PiP)
+const pipBtn = document.getElementById('pipBtn');
+if (pipBtn) {
+    pipBtn.addEventListener('click', async () => {
+        try {
+            if (document.pictureInPictureElement) {
+                await document.exitPictureInPicture();
+            } else if (document.pictureInPictureEnabled && video.src) {
+                await video.requestPictureInPicture();
+            }
+        } catch (err) {
+            console.error('PiP failed:', err);
+            showToast('PiP failed or not supported', 'error');
+        }
+    });
+
+    video.addEventListener('enterpictureinpicture', () => {
+        pipBtn.classList.add('active');
+        pipBtn.innerHTML = '<i data-lucide="picture-in-picture"></i>';
+        
+        const playerContainer = document.getElementById('playerContainer');
+        if (playerContainer) playerContainer.classList.add('pip-active');
+        
+        showToast('PiP Mode Active', 'info');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
+
+    video.addEventListener('leavepictureinpicture', () => {
+        pipBtn.classList.remove('active');
+        pipBtn.innerHTML = '<i data-lucide="picture-in-picture-2"></i>';
+         
+        const playerContainer = document.getElementById('playerContainer');
+        if (playerContainer) playerContainer.classList.remove('pip-active');
+        
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
+}
+
+// Restore Button inside Placeholder
+const leavePipBtn = document.getElementById('leavePipBtn');
+if (leavePipBtn) {
+    leavePipBtn.addEventListener('click', async () => {
+        if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+        }
+    });
+}
+
 
 let wasCollapsedBeforeFullscreen = false;
 
@@ -1149,6 +1256,81 @@ document.querySelectorAll('.speed-opt').forEach(opt => {
         }
     });
 });
+
+// =====================================================
+// RESUME PLAYBACK LOGIC
+// =====================================================
+const resumeSubmenu = document.getElementById('resumeSubmenu');
+
+// Load settings
+window.api.invoke('get-config').then(config => {
+    if (config.resumeMode) {
+        resumeMode = config.resumeMode;
+        updateResumeMenuState();
+    }
+});
+
+if (resumeSubmenu) {
+    resumeSubmenu.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const mode = item.getAttribute('data-resume');
+            if (mode) {
+                resumeMode = mode;
+                window.api.invoke('set-config', { key: 'resumeMode', value: mode });
+                updateResumeMenuState();
+                
+                const labels = { always: 'Autoplay', never: 'Never', ask: 'Ask Everytime' };
+                showToast(`Resume Mode: ${labels[mode]}`, 'success');
+                
+                settingsMenu.classList.remove('visible');
+            }
+        });
+    });
+}
+
+function updateResumeMenuState() {
+    if (!resumeSubmenu) return;
+    resumeSubmenu.querySelectorAll('.menu-item').forEach(el => {
+        const mode = el.getAttribute('data-resume');
+        el.classList.toggle('active', mode === resumeMode);
+    });
+}
+
+// Resume Modal
+const resumeModal = document.getElementById('resumeModal');
+const confirmResumeBtn = document.getElementById('confirmResume');
+const cancelResumeBtn = document.getElementById('cancelResume');
+let pendingResumeTime = 0;
+
+function showResumeModal(time) {
+    pendingResumeTime = time;
+    document.getElementById('resumeTimeDisplay').textContent = `at ${formatTime(time)}`;
+    setTimeout(() => resumeModal.classList.add('visible'), 100);
+}
+
+if (confirmResumeBtn) {
+    confirmResumeBtn.addEventListener('click', () => {
+        resumeModal.classList.remove('visible');
+        video.currentTime = pendingResumeTime;
+        video.play();
+        updatePlayIcon(true);
+    });
+}
+
+if (cancelResumeBtn) {
+    cancelResumeBtn.addEventListener('click', () => {
+        resumeModal.classList.remove('visible');
+        video.currentTime = 0;
+        video.play();
+        updatePlayIcon(true);
+        // User chose to restart, so clear history? Or keep it?
+        // Usually restart implies forgetting previous session for now.
+        if (currentMovieIndex !== -1) {
+            window.api.invoke('clear-progress', currentMovies[currentMovieIndex].videoPath);
+        }
+    });
+}
 
 // Repair Video Logic
 let currentRepairMode = 'remerge'; // 'remerge' | 'reencode'

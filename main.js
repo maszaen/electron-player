@@ -76,6 +76,55 @@ function createWindow() {
     });
 }
 
+// =====================================================
+// PLAYBACK HISTORY & CONFIG API
+// =====================================================
+const historyPath = path.join(app.getPath('userData'), 'playback-history.json');
+
+function loadHistory() {
+    try {
+        if (fs.existsSync(historyPath)) {
+            return JSON.parse(fs.readFileSync(historyPath, 'utf-8'));
+        }
+    } catch { }
+    return {};
+}
+
+function saveHistory(data) {
+    try {
+        fs.writeFileSync(historyPath, JSON.stringify(data));
+    } catch (e) { console.error('Failed to save history:', e); }
+}
+
+// Config & History IPC
+ipcMain.handle('get-config', () => loadConfig());
+
+ipcMain.handle('set-config', (event, { key, value }) => {
+    const config = loadConfig();
+    config[key] = value;
+    saveConfig(config);
+    return config;
+});
+
+ipcMain.handle('save-progress', (event, { path: videoPath, time }) => {
+    const history = loadHistory();
+    history[videoPath] = time;
+    saveHistory(history);
+});
+
+ipcMain.handle('get-progress', (event, videoPath) => {
+    const history = loadHistory();
+    return history[videoPath] || 0;
+});
+
+ipcMain.handle('clear-progress', (event, videoPath) => {
+    const history = loadHistory();
+    if (history[videoPath]) {
+        delete history[videoPath];
+        saveHistory(history);
+    }
+});
+
 app.whenReady().then(() => {
     cleanupTempFiles(); // Clean orphaned files from previous session
     createWindow();
@@ -186,7 +235,7 @@ function cleanupTempFiles() {
 
 // Helpers
 function isTempVideoFile(filename) {
-    return filename.includes('.repaired.mp4') || filename.includes('.reencoded.mp4') || filename.includes('.tmp.mp4');
+    return filename.includes('.repaired.mp4') || filename.includes('.repaired-fps.mp4') || filename.includes('.reencoded.mp4') || filename.includes('.tmp.mp4');
 }
 
 // Check scanning mode for a folder
@@ -635,10 +684,11 @@ ipcMain.handle('reencode-video', async (event, videoPath) => {
             .videoCodec('libx264')
             .audioCodec('aac')
             .outputOptions([
-                '-preset ultrafast', // EXTREME SPEED
-                '-tune zerolatency',
-                '-crf 28',           // Slightly lower quality for speed (visually OK)
-                '-g 30',             // Keyframe every 1s (30fps) - very smooth seeking
+                '-preset veryfast', // Balanced Speed/Quality
+                '-profile:v main',  // Max Compatibility (Fixes Playback Lag)
+                '-pix_fmt yuv420p', // Standard Color Space
+                '-crf 23',          // Good Quality
+                '-g 60',            // Standard Keyframe (2s)
                 '-sc_threshold 0',
                 '-movflags +faststart'
             ])
@@ -715,11 +765,12 @@ ipcMain.handle('fps-repair', async (event, videoPath) => {
             .videoCodec('libx264')
             .audioCodec('aac')
             .outputOptions([
-                '-preset superfast',     
-                '-tune zerolatency',     
-                '-crf 26',               
-                '-fps_mode cfr',         // FORCE CONSTANT FRAME RATE
-                '-force_key_frames expr:gte(t,n_forced*1)', // Force Keyframe EVERY 1 SECOND
+                '-preset veryfast',      // Balanced Speed/Quality
+                '-profile:v main',       // Max Compatibility (Fixes Playback Lag)
+                '-pix_fmt yuv420p',      // Standard Color Space
+                '-crf 23',               // Good Quality
+                '-fps_mode cfr',         // Timestamp Alignment
+                '-force_key_frames expr:gte(t,n_forced*1)', // 1s Precision
                 '-sc_threshold 0',       
                 '-movflags +faststart'
             ])
