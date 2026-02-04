@@ -324,6 +324,33 @@ function renderMovies(movies) {
     });
 }
 
+function scrollToActiveItem() {
+    // Wait for any layout shifts/transitions to settle
+    setTimeout(() => {
+        const activeItem = document.querySelector('.movie-item.active');
+        const container = document.getElementById('movieList');
+        
+        if (activeItem && container) {
+            // Get positions relative to viewport
+            const itemRect = activeItem.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            // Calculate how far the item is from the top of the container's visible area
+            const relativeTop = itemRect.top - containerRect.top;
+            
+            // We want relativeTop to be 50px.
+            // If relativeTop is 200 (too far down), we scroll DOWN by (200 - 50) = 150.
+            // If relativeTop is -100 (scrolled past), we scroll UP by (-100 - 50) = -150.
+            const scrollAdjustment = relativeTop - 50;
+            
+            container.scrollBy({
+                top: scrollAdjustment,
+                behavior: 'smooth'
+            });
+        }
+    }, 100); // Small delay to ensure layout metrics are fresh
+}
+
 // =====================================================
 // VIDEO PLAYBACK
 // =====================================================
@@ -338,6 +365,9 @@ async function playMovie(index) {
     document.querySelectorAll('.movie-item').forEach((el, i) => {
         el.classList.toggle('active', i === index);
     });
+    
+    // Scroll to active item in sidebar
+    scrollToActiveItem();
 
     titleDisplay.innerText = movie.name;
     video.src = movie.videoPath;
