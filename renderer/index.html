@@ -14,6 +14,22 @@
         <!-- <span class="titlebar-title">Tons</span> -->
         <img src="../assets/icon-type.png" alt="App Icon" class="titlebar-title">
         <div class="window-controls">
+            <div style="position: relative; height: 100%;">
+                <button class="control-btn layout-btn" id="layoutBtn" title="Change Layout">
+                    <i data-lucide="layout-template"></i>
+                </button>
+                <!-- Layout Menu -->
+                <div class="context-menu titlebar-menu" id="layoutMenu">
+                    <div class="menu-item active" id="layoutSimple" data-layout="simple">
+                      <span>Simplified</span>
+                        <i data-lucide="check" class="check-icon"></i>
+                    </div>
+                    <div class="menu-item" id="layoutYoutube" data-layout="youtube">
+                      <span>Seamless</span>
+                         <i data-lucide="check" class="check-icon" style="opacity: 0;"></i>
+                    </div>
+                </div>
+            </div>
             <button class="control-btn refresh-btn" id="refreshBtn" title="Refresh">
                 <i data-lucide="rotate-cw"></i>
             </button>
@@ -59,7 +75,7 @@
                     <button class="icon-btn" id="sidebarToggle" title="Toggle Sidebar">
                         <i data-lucide="panel-left"></i>
                     </button>
-                    <div class="video-title" id="videoTitle">Select a video</div>
+                    <div class="video-title" id="videoTitle">No Playing Video</div>
                 </div>
             </div>
 

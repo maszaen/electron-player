@@ -1827,3 +1827,88 @@ video {
     width: 16px;
     height: 16px;
 }
+
+/* =====================================================
+   LAYOUT UI
+   ===================================================== */
+.titlebar-menu {
+    top: 32px;
+    right: 0px;
+    left: auto;
+    bottom: auto;
+    width: 180px;
+    transform-origin: top right;
+}
+
+.check-icon {
+    width: 14px;
+    height: 14px;
+    margin-right: -4px;
+}
+
+/* =====================================================
+   YOUTUBE-LIKE LAYOUT MODE
+   ===================================================== */
+body.layout-youtube .app-container {
+    flex-direction: column;
+    overflow-y: auto;
+    height: calc(100vh - 36px);
+    display: flex;
+}
+
+/* Force Sidebar to be Visible and Below */
+body.layout-youtube .sidebar {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0 !important; /* Override collapsed state */
+    height: auto;
+    overflow: visible; /* Let parent scroll */
+    order: 2;
+    border-right: none;
+    background: transparent;
+}
+
+/* Force Main Video to be Top and Fixed Aspect/Size */
+body.layout-youtube .main-content {
+    order: 1;
+    flex: 0 0 auto;
+    width: 100%;
+    /* Max height constraint to ensure player isn't too huge on tall screens */
+    max-height: calc(100vh - 36px);
+    aspect-ratio: 16/9;
+    position: relative;
+    background: black;
+    overflow: hidden;
+}
+
+/* Hide Sidebar Header & Toggle in YT Mode */
+body.layout-youtube .sidebar-header,
+body.layout-youtube #sidebarToggle {
+    display: none;
+}
+
+/* Adjust Movie List Grid */
+body.layout-youtube .movie-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    padding: 24px;
+    overflow-y: visible; /* Parent scrolls */
+}
+
+body.layout-youtube .movie-list-wrapper {
+    overflow: visible;
+}
+
+/* Remove gradient overlays in grid mode, they look weird */
+body.layout-youtube .movie-list-wrapper::before,
+body.layout-youtube .movie-list-wrapper::after {
+    display: none;
+}
+
+/* Ensure empty state looks okay */
+body.layout-youtube .movie-list-empty {
+    grid-column: 1 / -1;
+    padding: 60px 0;
+}

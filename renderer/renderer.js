@@ -1855,3 +1855,90 @@ if (confirmRepairBtn) {
         }
     });
 }
+
+// =====================================================
+// LAYOUT SWITCHER
+// =====================================================
+const layoutBtn = document.getElementById('layoutBtn');
+const layoutMenu = document.getElementById('layoutMenu');
+const layoutItems = document.querySelectorAll('.menu-item[data-layout]');
+
+// State
+let currentLayout = sessionStorage.getItem('layoutMode') || 'simple';
+
+// Initialize
+if (currentLayout === 'youtube') {
+    setYoutubeLayout();
+} else {
+    setSimpleLayout();
+}
+
+// Toggle Menu
+layoutBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = layoutMenu.classList.contains('visible');
+    
+    // Close others
+    document.querySelectorAll('.context-menu').forEach(el => el.classList.remove('visible'));
+    
+    if (!isVisible) {
+        layoutMenu.classList.add('visible');
+    }
+});
+
+// Handle Selection
+layoutItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const mode = item.dataset.layout;
+        
+        if (mode === 'youtube') {
+            setYoutubeLayout();
+        } else {
+            setSimpleLayout();
+        }
+        
+        layoutMenu.classList.remove('visible');
+        sessionStorage.setItem('layoutMode', mode);
+    });
+});
+
+// Close when clicking outside
+window.addEventListener('click', (e) => {
+    if (!e.target.closest('#layoutMenu') && !e.target.closest('#layoutBtn')) {
+        layoutMenu.classList.remove('visible');
+    }
+});
+
+function setYoutubeLayout() {
+    document.body.classList.add('layout-youtube');
+    currentLayout = 'youtube';
+    updateLayoutMenuUI();
+    
+    // Force sidebar visibility update
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) { // Sidebar is forced visible by CSS, but let's ensure class logic doesn't fight it
+         // CSS has !important, so we are good.
+    }
+}
+
+function setSimpleLayout() {
+    document.body.classList.remove('layout-youtube');
+    currentLayout = 'simple';
+    updateLayoutMenuUI();
+}
+
+function updateLayoutMenuUI() {
+    layoutItems.forEach(item => {
+        const check = item.querySelector('.check-icon');
+        const mode = item.dataset.layout;
+        
+        if (mode === currentLayout) {
+            item.classList.add('active');
+            check.style.opacity = '1';
+        } else {
+            item.classList.remove('active');
+            check.style.opacity = '0';
+        }
+    });
+}
