@@ -101,7 +101,21 @@ loadLibrary();
 async function handleScanResult(result) {
     if (!result) return;
     
-    const { movies, needsGeneration } = result;
+    // Extract data
+    const { movies, needsGeneration, rootPath } = result;
+    
+    // Update Titlebar Path Button
+    const pathBtn = document.getElementById('titlebarPathBtn');
+    if (pathBtn) {
+        if (rootPath) {
+            pathBtn.innerText = rootPath;
+            pathBtn.title = rootPath; // Tooltip for full path
+        } else {
+            pathBtn.innerText = 'Open Folder';
+            pathBtn.title = 'Open Folder';
+        }
+    }
+
     renderMovies(movies);
     
     const { covers, previews } = needsGeneration;
@@ -111,7 +125,7 @@ async function handleScanResult(result) {
     if (hasCovers || hasPreviews) {
         isGenerating = true;
         const totalOps = covers.length + previews.length;
-        console.log(`[GEN] Starting generation. Total ops: ${totalOps} (Covers: ${covers.length}, Previews: ${previews.length})`);
+        console.log(`[GEN] Starting generation. Total ops: ${totalOps}`);
         
         showGeneratingLoader(0, totalOps, 'Initializing generation...');
         
@@ -126,15 +140,11 @@ async function handleScanResult(result) {
         if (hasPreviews) types.push('preview');
         
         // Trigger generation
-        console.log('[GEN] Invoking generating-assets...');
         await window.api.invoke('generate-assets', { 
             movies: moviesToProcess, 
             types: types 
         });
         
-        console.log('[GEN] Invoke finished. Force hiding loader.');
-        
-        // Force hide loader when process completes (even if 0 items were processed)
         isGenerating = false;
         const loader = document.getElementById('generationLoader');
         if (loader) {
@@ -176,8 +186,17 @@ document.getElementById('scanBtn').addEventListener('click', async () => {
     await handleScanResult(result);
 });
 
+document.getElementById('titlebarPathBtn').addEventListener('click', async () => {
+    console.log('[UI] Titlebar Path button clicked');
+    // Using same logic as scanBtn (which calls selectFolder)
+    const result = await window.api.selectFolder();
+    await handleScanResult(result);
+});
+
 // Update progress listener to handle types
 window.api.onGenerationProgress((progress) => {
+
+
     console.log(`[GEN-PROGRESS] ${progress.type} | Current: ${progress.current} / Total: ${progress.total} | Movie: ${progress.movie.name}`);
     
     // Update local movie data
@@ -1915,10 +1934,10 @@ function setYoutubeLayout() {
     currentLayout = 'youtube';
     updateLayoutMenuUI();
     
-    // Force sidebar visibility update
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) { // Sidebar is forced visible by CSS, but let's ensure class logic doesn't fight it
-         // CSS has !important, so we are good.
+    // Update Placeholder Text
+    const phText = document.getElementById('placeholderText');
+    if (phText) {
+        phText.innerText = 'Scroll down to select video from your library';
     }
 }
 
@@ -1926,6 +1945,12 @@ function setSimpleLayout() {
     document.body.classList.remove('layout-youtube');
     currentLayout = 'simple';
     updateLayoutMenuUI();
+    
+    // Update Placeholder Text
+    const phText = document.getElementById('placeholderText');
+    if (phText) {
+        phText.innerHTML = 'Open the sidebar and select<br>a video from your library';
+    }
 }
 
 function updateLayoutMenuUI() {

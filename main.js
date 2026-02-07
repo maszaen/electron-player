@@ -376,7 +376,7 @@ ipcMain.handle('scan-directory', async () => {
         } else {
             const config = loadConfig();
             if (!config.libraryPath || !fs.existsSync(config.libraryPath)) {
-                return { movies: [], needsAssetGeneration: { covers: [], previews: [] } };
+                return { movies: [], needsGeneration: { covers: [], previews: [] }, rootPath: '' };
             }
             rootPath = config.libraryPath;
         }
@@ -390,10 +390,10 @@ ipcMain.handle('scan-directory', async () => {
         // Check what needs generation
         const needsGeneration = checkAssetsNeeded(movies);
         
-        return { movies, needsGeneration };
+        return { movies, needsGeneration, rootPath };
     } catch (error) {
         console.error("Scan error:", error);
-        return { movies: [], needsGeneration: { covers: [], previews: [] } };
+        return { movies: [], needsGeneration: { covers: [], previews: [] }, rootPath: '' };
     }
 });
 
@@ -414,7 +414,7 @@ ipcMain.handle('select-folder', async () => {
         movies.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
         
         const needsGeneration = checkAssetsNeeded(movies);
-        return { movies, needsGeneration };
+        return { movies, needsGeneration, rootPath };
     }
     return null;
 });

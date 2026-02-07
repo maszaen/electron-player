@@ -13,10 +13,11 @@
     <div class="titlebar">
         <!-- <span class="titlebar-title">Tons</span> -->
         <img src="../assets/icon-type.png" alt="App Icon" class="titlebar-title">
+        <button id="titlebarPathBtn" class="titlebar-path-btn">Open Folder</button>
         <div class="window-controls">
             <div style="position: relative; height: 100%;">
                 <button class="control-btn layout-btn" id="layoutBtn" title="Change Layout">
-                    <i data-lucide="layout-template"></i>
+                    <i data-lucide="layout-panel-top"></i>
                 </button>
                 <!-- Layout Menu -->
                 <div class="context-menu titlebar-menu" id="layoutMenu">
@@ -111,7 +112,7 @@
                 </div>
                 <hr class="hr-vid-placeholder">
                 <h2>Ready to Play</h2>
-                <p>Open the sidebar and select<br>a video from your library</p>
+                <p id="placeholderText">Open the sidebar and select<br>a video from your library</p>
             </div>
 
             <!-- PiP Active Placeholder -->

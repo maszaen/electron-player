@@ -71,7 +71,7 @@ body {
     height: 36px;
     background: linear-gradient(180deg, #151515 0%, #0a0a0a 100%);
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start; /* Changed from space-between */
     align-items: center;
     -webkit-app-region: drag;
     padding: 0px;
@@ -84,9 +84,37 @@ body {
     width: 70px;
     opacity: 0.9;
     padding: 0 14px;
+    flex-shrink: 0;
+}
+
+/* New Path Button Style */
+.titlebar-path-btn {
+    -webkit-app-region: no-drag; /* Clickable */
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 8px;
+    margin-left: 0px;
+    border-radius: 4px;
+    max-width: 400px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.titlebar-path-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    opacity: 1;
 }
 
 .window-controls {
+    margin-left: auto; /* Push to right */
     display: flex;
     height: 100%;
     -webkit-app-region: no-drag;
