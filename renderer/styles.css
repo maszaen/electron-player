@@ -759,7 +759,7 @@ video {
     flex: 1;
     align-items: center;
     gap: 9px; /* Match overlay-controls gap */
-    max-width: 100%; /* Prevent title from taking too much space */
+    max-width: 50%; /* Prevent title from taking too much space */
 }
 
 /* Visibility synced with controls */
@@ -778,11 +778,10 @@ video {
     font-weight: 500;
     backdrop-filter: blur(4px);
     
-    max-width: 50%;
-    display: flex;
+    max-width: 100%;
+    display: block;
     height: 40px; /* Pill height */
-    align-items: center;
-    justify-content: center;
+    line-height: 24px; /* Vertical centering */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1563,6 +1562,7 @@ video {
     visibility: hidden;
     opacity: 0;
     transform: scale(0.95);
+
     
     /* Smooth Transition for In/Out */
     transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.2s;
