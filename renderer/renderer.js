@@ -1911,13 +1911,17 @@ layoutItems.forEach(item => {
         e.stopPropagation();
         const mode = item.dataset.layout;
         
-        if (mode === 'youtube') {
-            setYoutubeLayout();
-        } else {
-            setSimpleLayout();
+        // Close menu immediately
+        layoutMenu.classList.remove('visible');
+        
+        // Prevent switching if already active
+        if (mode === currentLayout) {
+            return;
         }
         
-        layoutMenu.classList.remove('visible');
+        // Start transition (no await, menu closes immediately)
+        switchLayoutWithAnimation(mode);
+        
         sessionStorage.setItem('layoutMode', mode);
     });
 });
@@ -1928,6 +1932,68 @@ window.addEventListener('click', (e) => {
         layoutMenu.classList.remove('visible');
     }
 });
+
+// Layout switching with animation
+async function switchLayoutWithAnimation(mode) {
+    const overlay = document.getElementById('layoutOverlay');
+    
+    // Fade in overlay
+    overlay.classList.add('visible');
+    
+    // Wait for fade in to complete
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Switch layout
+    if (mode === 'youtube') {
+        setYoutubeLayout();
+    } else {
+        setSimpleLayout();
+    }
+    
+    // Wait for layout to settle (500ms delay)
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // For Seamless mode, scroll down before fade out
+    if (mode === 'youtube') {
+        const movieList = document.getElementById('movieList');
+        const appContainer = document.querySelector('.app-container');
+        if (movieList && appContainer) {
+            const titlebarHeight = 36;
+            const rect = movieList.getBoundingClientRect();
+            const scrollTop = rect.top + appContainer.scrollTop - titlebarHeight;
+            appContainer.scrollTo({
+                top: scrollTop > 0 ? scrollTop : 0,
+                behavior: 'instant'
+            });
+        }
+    }
+    
+    // Fade out overlay
+    overlay.classList.remove('visible');
+    
+    // Additional delay after fade out
+    const delayAfterFadeOut = mode === 'youtube' ? 500 : 300;
+    await new Promise(resolve => setTimeout(resolve, delayAfterFadeOut));
+    
+    // For Seamless mode, scroll to top after fade out
+    if (mode === 'youtube') {
+        const appContainer = document.querySelector('.app-container');
+        if (appContainer) {
+            appContainer.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+    }
+    
+    // For Simplified mode, open sidebar after fade out
+    if (mode === 'simple') {
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            sidebar.classList.remove('collapsed');
+        }
+    }
+}
 
 function setYoutubeLayout() {
     document.body.classList.add('layout-youtube');

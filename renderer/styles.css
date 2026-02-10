@@ -1940,3 +1940,22 @@ body.layout-youtube .movie-list-empty {
     grid-column: 1 / -1;
     padding: 60px 0;
 }
+
+/* Layout Transition Overlay */
+.layout-overlay {
+    position: fixed;
+    top: 36px; /* Below titlebar */
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - 36px);
+    background: #000000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+    z-index: 9999;
+}
+
+.layout-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
