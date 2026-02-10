@@ -371,14 +371,15 @@ function scanRecursive(currentPath, rootPath, depth, maxDepth, movies) {
 ipcMain.handle('scan-directory', async () => {
     try {
         let rootPath;
-        if (isDev) {
-            rootPath = path.join(process.cwd(), '..');
+        const config = loadConfig();
+        if (config.libraryPath && fs.existsSync(config.libraryPath)) {
+            rootPath = config.libraryPath;
         } else {
-            const config = loadConfig();
-            if (!config.libraryPath || !fs.existsSync(config.libraryPath)) {
+            // Fallback to default path
+            rootPath = isDev ? path.join(process.cwd(), '..') : '';
+            if (!rootPath || !fs.existsSync(rootPath)) {
                 return { movies: [], needsGeneration: { covers: [], previews: [] }, rootPath: '' };
             }
-            rootPath = config.libraryPath;
         }
 
         const movies = [];
@@ -403,11 +404,10 @@ ipcMain.handle('select-folder', async () => {
     if (!result.canceled && result.filePaths.length > 0) {
         const rootPath = result.filePaths[0];
         
-        if (!isDev) {
-            const config = loadConfig();
-            config.libraryPath = rootPath;
-            saveConfig(config);
-        }
+        // Save to config (always, including dev mode)
+        const config = loadConfig();
+        config.libraryPath = rootPath;
+        saveConfig(config);
         
         const movies = [];
         scanRecursive(rootPath, rootPath, 0, 3, movies);

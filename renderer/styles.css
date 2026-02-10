@@ -267,7 +267,7 @@ body {
     padding: 11px 6px 12px 12px; /* Right padding smaller due to scrollbar */
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 /* Top gradient fade - using wrapper in HTML */
@@ -285,7 +285,7 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: 24px;
+    height: 17px;
     background: linear-gradient(180deg, #080808 0%, transparent 100%);
     z-index: 10;
     pointer-events: none;
@@ -297,7 +297,7 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 24px;
+    height: 17px;
     background: linear-gradient(180deg, transparent 0%, #080808 100%);
     z-index: 10;
     pointer-events: none;
