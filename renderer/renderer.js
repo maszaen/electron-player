@@ -453,7 +453,23 @@ function startPlayback() {
 // Title click checks empty state
 titleDisplay.addEventListener('click', () => {
     if (currentMovieIndex === -1) {
-        sidebar.classList.remove('collapsed');
+        if (currentLayout === 'youtube') {
+            // In Seamless mode, scroll to movie list
+            const movieList = document.getElementById('movieList');
+            const appContainer = document.querySelector('.app-container');
+            if (movieList && appContainer) {
+                const titlebarHeight = 36;
+                const rect = movieList.getBoundingClientRect();
+                const scrollTop = rect.top + appContainer.scrollTop - titlebarHeight;
+                appContainer.scrollTo({
+                    top: scrollTop > 0 ? scrollTop : 0,
+                    behavior: 'smooth'
+                });
+            }
+        } else {
+            // In Simplified mode, open sidebar
+            sidebar.classList.remove('collapsed');
+        }
     }
 });
 
@@ -1936,6 +1952,15 @@ window.addEventListener('click', (e) => {
 // Layout switching with animation
 async function switchLayoutWithAnimation(mode) {
     const overlay = document.getElementById('layoutOverlay');
+    
+    // Pre-switch actions
+    if (mode === 'youtube') {
+        // Close sidebar if open before switching to Seamless
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && !sidebar.classList.contains('collapsed')) {
+            sidebar.classList.add('collapsed');
+        }
+    }
     
     // Fade in overlay
     overlay.classList.add('visible');
