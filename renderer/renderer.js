@@ -1899,14 +1899,25 @@ const layoutMenu = document.getElementById('layoutMenu');
 const layoutItems = document.querySelectorAll('.menu-item[data-layout]');
 
 // State
-let currentLayout = sessionStorage.getItem('layoutMode') || 'simple';
+let currentLayout = 'simple'; // Default, will be updated from config
 
-// Initialize
-if (currentLayout === 'youtube') {
-    setYoutubeLayout();
-} else {
+// Load layout mode from config
+window.api.invoke('get-config').then(config => {
+    // Always start with Simplified for better UX
     setSimpleLayout();
-}
+    updateLayoutMenuUI();
+    
+    // If config is Seamless, switch after 1 second delay to prevent flashing
+    if (config.layoutMode === 'youtube') {
+        setTimeout(() => {
+            switchLayoutWithAnimation('youtube');
+        }, 1000);
+    }
+}).catch(() => {
+    // Fallback to simple if config fails
+    setSimpleLayout();
+    updateLayoutMenuUI();
+});
 
 // Toggle Menu
 layoutBtn.addEventListener('click', (e) => {
@@ -1938,7 +1949,8 @@ layoutItems.forEach(item => {
         // Start transition (no await, menu closes immediately)
         switchLayoutWithAnimation(mode);
         
-        sessionStorage.setItem('layoutMode', mode);
+        // Save to config
+        window.api.invoke('set-config', { key: 'layoutMode', value: mode });
     });
 });
 
