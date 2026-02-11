@@ -1902,12 +1902,17 @@ body.layout-youtube .main-content {
     order: 1;
     flex: 0 0 auto;
     width: 100%;
+    /* height: 100%; */
     /* Max height constraint to ensure player isn't too huge on tall screens */
     max-height: calc(100vh - 36px);
     aspect-ratio: 16/9;
     position: relative;
     background: black;
     overflow: hidden;
+}
+
+body.layout-youtube .app-container:fullscreen .main-content {
+    max-height: 100vh;
 }
 
 /* Hide Sidebar Header & Toggle in YT Mode */
