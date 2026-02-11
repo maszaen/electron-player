@@ -152,9 +152,10 @@ app.on('window-all-closed', () => {
 // SMART SCANNING & ASSET GENERATION
 // =====================================================
 
-// Helper to sanitize folder names
+// Helper to sanitize folder names (minimal: only ffmpeg-problematic and Windows-invalid chars)
 function sanitizeName(name) {
-    return name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    // Replace: [ ] (ffmpeg glob), ' (ffmpeg concat), and \ / : * ? " < > | (Windows invalid)
+    return name.replace(/[\[\]'\\/:*?"<>|]/g, '_');
 }
 
 function getThumbnailDir(rootPath, videoPath, mode) {
@@ -167,9 +168,9 @@ function getThumbnailDir(rootPath, videoPath, mode) {
         // Folder mode: Thumbnails in PREVIEW/RelativePath/
         return path.join(baseDir, relativeDir);
     } else {
-        // File mode: Thumbnails in PREVIEW/RelativePath/_file_VideoName/
-        // Use a special prefix folder for loose files based on their name to avoid conflicts
-        return path.join(baseDir, relativeDir, `_m_${sanitizeName(videoName)}`);
+        // File mode: Thumbnails in PREVIEW/RelativePath/VideoName/
+        // Use video name directly (sanitized for invalid chars only)
+        return path.join(baseDir, relativeDir, sanitizeName(videoName));
     }
 }
 
@@ -871,7 +872,8 @@ function generatePreviewVideo(videoPath, outputPath) {
             Promise.all(clipPromises)
                 .then(() => {
                     const listFile = path.join(previewDir, `list_${Date.now()}.txt`);
-                    const listContent = tempFiles.map(f => `file '${f.replace(/\\/g, '/')}'`).join('\n');
+                    // Escape single quotes in path for ffmpeg concat (replace ' with '\'')
+                    const listContent = tempFiles.map(f => `file '${f.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`).join('\n');
                     fs.writeFileSync(listFile, listContent);
                     
                     ffmpeg()

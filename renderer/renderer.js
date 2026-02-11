@@ -33,6 +33,8 @@ let previousVolume = 0.5; // Store volume before mute (default restore to 50%)
 let clickTimeout = null; // For single/double click detection
 const CLICK_DELAY = 250; // ms delay to distinguish single from double click
 let volumeSliderLocked = false; // Keep slider open after user adjusts volume
+let volumeSaveTimeout = null; // Debounce volume save
+let volumeBeforeScroll = null; // Store volume before scroll hides video (for seamless mode)
 
 // =====================================================
 // WINDOW CONTROLS
@@ -295,10 +297,10 @@ function renderMovies(movies) {
         const previewVideo = el.querySelector('.movie-preview');
         let previewInterval = null;
         
-        // Check if generated preview exists
-        const hasPreview = movie.previewPath && movie.previewPath.length > 0;
-        
         el.addEventListener('mouseenter', () => {
+            // Check realtime (not cached) so newly generated previews work immediately
+            const hasPreview = movie.previewPath && movie.previewPath.length > 0;
+            
             if (hasPreview) {
                 // Use generated preview video - just play and loop
                 previewVideo.src = movie.previewPath;
@@ -394,6 +396,26 @@ async function playMovie(index) {
     // Hide placeholder
     document.querySelector('.main-content').classList.add('has-video');
     sidebar.classList.add('collapsed');
+    
+    // In Seamless mode, auto scroll to top to show video
+    if (currentLayout === 'youtube') {
+        const appContainer = document.querySelector('.app-container');
+        if (appContainer) {
+            appContainer.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+        
+        // Restore volume if it was muted by scroll
+        if (volumeBeforeScroll !== null) {
+            video.volume = volumeBeforeScroll;
+            updateVolumeIcon(volumeBeforeScroll);
+            updateVolumeSliderStyle(volumeBeforeScroll);
+            volumeSlider.value = volumeBeforeScroll;
+            volumeBeforeScroll = null;
+        }
+    }
 
     // Reset Ended State & Overlay
     isVideoEnded = false;
@@ -1029,6 +1051,9 @@ volumeSlider.addEventListener('input', (e) => {
         previousVolume = value;
     }
     
+    // Save volume with debounce
+    saveVolumeDebounced(value);
+    
     // Lock slider open until play/pause
     if (!volumeSliderLocked) {
         volumeSliderLocked = true;
@@ -1074,6 +1099,9 @@ volumeBtn.addEventListener('click', (e) => {
     updateVolumeIcon(video.volume);
     updateVolumeSliderStyle(video.volume);
     
+    // Save volume with debounce
+    saveVolumeDebounced(video.volume);
+    
     // Unlock slider so it closes on unhover
     unlockVolumeSlider();
 });
@@ -1097,11 +1125,29 @@ function updateVolumeSliderStyle(volume) {
     volumeSlider.style.setProperty('--volume-percent', `${percent}%`);
 }
 
-// Initialize with volume muted (0)
-video.volume = 0;
-volumeSlider.value = 0;
-updateVolumeSliderStyle(0);
-updateVolumeIcon(0);
+// Initialize volume from saved config (default: full volume)
+window.api.invoke('get-config').then(config => {
+    const savedVolume = config.volume !== undefined ? config.volume : 1;
+    video.volume = savedVolume;
+    volumeSlider.value = savedVolume;
+    updateVolumeSliderStyle(savedVolume);
+    updateVolumeIcon(savedVolume);
+    if (savedVolume > 0) previousVolume = savedVolume;
+}).catch(() => {
+    // Fallback to full volume
+    video.volume = 1;
+    volumeSlider.value = 1;
+    updateVolumeSliderStyle(1);
+    updateVolumeIcon(1);
+});
+
+// Debounced volume save function
+function saveVolumeDebounced(value) {
+    if (volumeSaveTimeout) clearTimeout(volumeSaveTimeout);
+    volumeSaveTimeout = setTimeout(() => {
+        window.api.invoke('set-config', { key: 'volume', value: value });
+    }, 1000); // 1 second debounce
+}
 
 // =====================================================
 // FULLSCREEN
@@ -1954,7 +2000,27 @@ layoutItems.forEach(item => {
     });
 });
 
-// Close when clicking outside
+// Close context menu when clicking outside (capture phase to intercept before other handlers)
+window.addEventListener('click', (e) => {
+    const anyMenuOpen = document.querySelector('.context-menu.visible');
+    
+    if (anyMenuOpen) {
+        // If click is outside all menus and their trigger buttons
+        const isInsideMenu = e.target.closest('.context-menu');
+        const isMenuTrigger = e.target.closest('#layoutBtn'); // Add other menu triggers here if needed
+        
+        if (!isInsideMenu && !isMenuTrigger) {
+            // Close all menus
+            document.querySelectorAll('.context-menu').forEach(el => el.classList.remove('visible'));
+            // Stop propagation so click doesn't trigger other actions
+            e.stopPropagation();
+            e.preventDefault();
+            return;
+        }
+    }
+}, true); // true = capture phase
+
+// Also handle layout menu close (bubble phase for normal behavior)
 window.addEventListener('click', (e) => {
     if (!e.target.closest('#layoutMenu') && !e.target.closest('#layoutBtn')) {
         layoutMenu.classList.remove('visible');
@@ -2070,3 +2136,52 @@ function updateLayoutMenuUI() {
         }
     });
 }
+
+// =====================================================
+// SEAMLESS MODE: SCROLL BEHAVIOR (MUTE/UNMUTE + CONTEXT MENU)
+// =====================================================
+(function setupSeamlessScrollBehavior() {
+    const appContainer = document.querySelector('.app-container');
+    const playerContainer = document.getElementById('playerContainer');
+    if (!appContainer || !playerContainer) return;
+    
+    let isVideoHidden = false;
+    
+    appContainer.addEventListener('scroll', () => {
+        if (currentLayout !== 'youtube') return;
+        
+        // Check if video container is hidden (scrolled past it)
+        const rect = playerContainer.getBoundingClientRect();
+        const titlebarHeight = 36;
+        const videoVisible = rect.bottom > titlebarHeight;
+        
+        if (!videoVisible && !isVideoHidden) {
+            // Video just became hidden
+            isVideoHidden = true;
+            
+            // Close context menus
+            document.querySelectorAll('.context-menu').forEach(el => el.classList.remove('visible'));
+            
+            // Store current volume and mute (only if not already muted)
+            if (video.volume > 0) {
+                volumeBeforeScroll = video.volume;
+                video.volume = 0;
+                updateVolumeIcon(0);
+                updateVolumeSliderStyle(0);
+                volumeSlider.value = 0;
+            }
+        } else if (videoVisible && isVideoHidden) {
+            // Video just became visible again
+            isVideoHidden = false;
+            
+            // Restore volume if we muted it
+            if (volumeBeforeScroll !== null) {
+                video.volume = volumeBeforeScroll;
+                updateVolumeIcon(volumeBeforeScroll);
+                updateVolumeSliderStyle(volumeBeforeScroll);
+                volumeSlider.value = volumeBeforeScroll;
+                volumeBeforeScroll = null;
+            }
+        }
+    });
+})();
