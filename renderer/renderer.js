@@ -67,6 +67,15 @@ window.api.isMaximized().then(updateMaximizeIcon);
 // =====================================================
 lucide.createIcons();
 
+// Helper to safely format local paths for Chromium (handles #, ?, spaces)
+function getSafeFileUrl(localPath) {
+    if (!localPath) return '';
+    let safePath = localPath.replace(/\\/g, '/');
+    if (!safePath.startsWith('/')) safePath = '/' + safePath;
+    let encodedPath = encodeURI(safePath).replace(/#/g, '%23').replace(/\?/g, '%3F');
+    return `file://${encodedPath}`;
+}
+
 // =====================================================
 // LIBRARY SCANNING & PREVIEW GENERATION
 // =====================================================
@@ -211,8 +220,8 @@ window.api.onGenerationProgress((progress) => {
             const el = movieList.children[movieIndex];
             if (el) {
                 const coverEl = el.querySelector('.movie-cover');
-                // Force cache bust
-                const newSrc = `file://${progress.movie.coverPath}?t=${Date.now()}`;
+                // Force cache bust safely
+                const newSrc = `${getSafeFileUrl(progress.movie.coverPath)}?t=${Date.now()}`;
                 
                 if (coverEl.tagName === 'DIV') {
                     // Replace fallback DIV with IMG
@@ -279,7 +288,8 @@ function renderMovies(movies) {
         // Use img tag for cover + hidden preview video
         let coverHtml = `<div class="movie-cover"></div>`;
         if (movie.coverPath) {
-            coverHtml = `<img src="${movie.coverPath}" class="movie-cover movie-cover-img" alt="">`;
+            const safePath = getSafeFileUrl(movie.coverPath);
+            coverHtml = `<img src="${safePath}" class="movie-cover movie-cover-img" alt="">`;
         }
 
         el.innerHTML = `
@@ -302,8 +312,10 @@ function renderMovies(movies) {
             const hasPreview = movie.previewPath && movie.previewPath.length > 0;
             
             if (hasPreview) {
+                const safePreviewPath = getSafeFileUrl(movie.previewPath);
+                
                 // Use generated preview video - just play and loop
-                previewVideo.src = movie.previewPath;
+                previewVideo.src = safePreviewPath;
                 previewVideo.load();
                 previewVideo.onloadeddata = () => {
                     previewVideo.play().catch(() => {});
@@ -314,7 +326,9 @@ function renderMovies(movies) {
                 const previewPositions = [0.1, 0.3, 0.5, 0.7, 0.9];
                 let currentPosIndex = 0;
                 
-                previewVideo.src = movie.videoPath;
+                const safeVideoPath = getSafeFileUrl(movie.videoPath);
+                
+                previewVideo.src = safeVideoPath;
                 previewVideo.load();
                 
                 previewVideo.onloadedmetadata = () => {
@@ -391,7 +405,7 @@ async function playMovie(index) {
     scrollToActiveItem();
 
     titleDisplay.innerText = movie.name;
-    video.src = movie.videoPath;
+    video.src = getSafeFileUrl(movie.videoPath);
     
     // Hide placeholder
     document.querySelector('.main-content').classList.add('has-video');
@@ -854,7 +868,7 @@ function showNextVideoOverlay(movie, isAutoplay, isEnd = false) {
 
     // Populate Cover
     if (movie.coverPath) {
-        coverImg.src = movie.coverPath;
+        coverImg.src = getSafeFileUrl(movie.coverPath);
         coverImg.style.display = 'block';
         fallbackDiv.style.display = 'none';
     } else {
@@ -1898,8 +1912,7 @@ if (confirmRepairBtn) {
             showToast(`${actionName} Complete`, 'success');
             
             // Reload Video Source
-            const newSrc = `file://${newPath}?t=${Date.now()}`;
-            const currentRate = video.playbackRate;
+            const newSrc = `${getSafeFileUrl(newPath)}?t=${Date.now()}`;
             
             video.src = newSrc;
             video.playbackRate = currentRate;
@@ -1930,7 +1943,8 @@ if (confirmRepairBtn) {
              showToast(`${actionName} Failed: ` + (err.message || 'Unknown error'), 'error');
              
              // RESTORE VIDEO IF FAILED
-             const oldSrc = `file://${movie.videoPath}?t=${Date.now()}`;
+             const oldSrc = `${getSafeFileUrl(movie.videoPath)}?t=${Date.now()}`;
+             
              video.src = oldSrc;
              video.currentTime = savedTime; 
         }
